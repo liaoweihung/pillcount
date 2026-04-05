@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>PillCount — Pharmacy Counter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2230;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --green: #3fb950;
+    --green-dim: rgba(63,185,80,0.12);
+    --green-glow: rgba(63,185,80,0.25);
+    --amber: #d29922;
+    --amber-dim: rgba(210,153,34,0.12);
+    --blue: #58a6ff;
+    --blue-dim: rgba(88,166,255,0.1);
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #484f58;
+    --red: #f85149;
+    --red-dim: rgba(248,81,73,0.12);
+    --radius: 12px;
+    --radius-sm: 7px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  header {
+    padding: 16px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: var(--green-dim);
+    border: 1px solid var(--green);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 16px; height: 16px; fill: var(--green); }
+  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-text span { color: var(--green); }
+  .status-dot {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-family: 'DM Mono', monospace;
+    color: var(--text2); padding: 4px 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px;
+  }
+  .status-dot::before {
+    content: '';
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text3);
+    transition: background 0.3s;
+  }
+  .status-dot.ready::before { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.scanning::before { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Camera section */
+  .camera-wrap {
+    position: relative;
+    background: #000;
+    aspect-ratio: 4/3;
+    overflow: hidden;
+  }
+  #video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #canvas-overlay {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+  .scan-frame {
+    position: absolute; inset: 0;
+    pointer-events: none;
+  }
+  .scan-line {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: 0;
+    animation: none;
+  }
+  .scan-line.active {
+    opacity: 1;
+    animation: scanline 2s linear infinite;
+  }
+  @keyframes scanline {
+    0% { top: 0%; }
+    100% { top: 100%; }
+  }
+  .corner-tl, .corner-tr, .corner-bl, .corner-br {
+    position: absolute; width: 24px; height: 24px;
+    border-color: var(--green); border-style: solid; opacity: 0.7;
+  }
+  .corner-tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
+  .corner-tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; border-radius: 0 4px 0 0; }
+  .corner-bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; border-radius: 0 0 0 4px; }
+  .corner-br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; border-radius: 0 0 4px 0; }
+
+  .cam-badge {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.7); border: 1px solid var(--border2);
+    color: var(--text2); font-size: 11px; font-family: 'DM Mono', monospace;
+    padding: 4px 12px; border-radius: 20px; white-space: nowrap;
+    backdrop-filter: blur(8px);
+  }
+  .live-count-badge {
+    position: absolute; bottom: 12px; right: 12px;
+    background: rgba(0,0,0,0.75); border: 1px solid var(--green);
+    color: var(--green); font-size: 20px; font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    padding: 6px 14px; border-radius: var(--radius-sm);
+    backdrop-filter: blur(8px);
+    display: none;
+  }
+  .cam-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; color: var(--text3);
+    background: var(--surface);
+  }
+  .cam-placeholder svg { width: 40px; height: 40px; opacity: 0.4; }
+  .cam-placeholder p { font-size: 13px; }
+
+  /* Controls */
+  .controls {
+    padding: 16px 20px;
+    display: flex; gap: 10px;
+  }
+  .btn {
+    flex: 1; padding: 13px 10px;
+    border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; font-weight: 500;
+    border: 1px solid var(--border2);
+    cursor: pointer; transition: all 0.15s;
+    background: var(--surface);
+    color: var(--text);
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary {
+    background: var(--green-dim);
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 0 16px var(--green-glow);
+  }
+  .btn.primary:hover { background: rgba(63,185,80,0.2); }
+  .btn.danger {
+    background: var(--red-dim);
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn:disabled { opacity: 0.35; pointer-events: none; }
+
+  /* Model loader */
+  .model-section {
+    margin: 0 20px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .model-header {
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .model-label { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+  .model-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .file-input-wrap {
+    position: relative;
+    background: var(--surface2);
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .file-input-wrap:hover { border-color: var(--green); }
+  .file-input-wrap input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
+  .file-input-wrap p { font-size: 13px; color: var(--text2); }
+  .file-input-wrap p span { color: var(--green); font-weight: 500; }
+  .model-status {
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text3);
+  }
+  .model-status.loaded { color: var(--green); }
+  .model-status.error { color: var(--red); }
+  .progress-bar {
+    height: 2px; background: var(--border);
+    border-radius: 2px; overflow: hidden; display: none;
+  }
+  .progress-fill {
+    height: 100%; width: 0%;
+    background: var(--green);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  /* Results panel */
+  .results {
+    margin: 0 20px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .results-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .results-label { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+  .results-body { padding: 16px; }
+  .count-display {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 16px;
+  }
+  .count-num {
+    font-size: 52px; font-weight: 600; font-family: 'DM Mono', monospace;
+    color: var(--green); line-height: 1;
+    transition: all 0.3s;
+  }
+  .count-unit { font-size: 16px; color: var(--text2); }
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 16px;
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+  }
+  .stat-label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
+  .stat-val { font-size: 18px; font-weight: 500; color: var(--text); }
+  .stat-val.green { color: var(--green); }
+  .stat-val.amber { color: var(--amber); }
+
+  /* Drug name input */
+  .drug-input-row {
+    display: flex; gap: 8px; align-items: center;
+    margin-bottom: 12px;
+  }
+  .drug-input {
+    flex: 1; background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; padding: 9px 12px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .drug-input:focus { border-color: var(--green); }
+  .drug-input::placeholder { color: var(--text3); }
+
+  /* Confidence slider */
+  .slider-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 4px;
+  }
+  .slider-label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; white-space: nowrap; }
+  input[type=range] {
+    flex: 1; height: 4px; appearance: none;
+    background: var(--border2); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    appearance: none; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--green);
+    cursor: pointer; border: 2px solid var(--bg);
+  }
+  .slider-val { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--green); min-width: 32px; text-align: right; }
+
+  /* History */
+  .history-section {
+    margin: 0 20px 20px;
+  }
+  .section-title {
+    font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 10px;
+  }
+  .history-list { display: flex; flex-direction: column; gap: 6px; }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    animation: slideIn 0.25s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .history-drug { font-size: 14px; font-weight: 500; }
+  .history-meta { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .history-count { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--green); }
+  .empty-history { font-size: 13px; color: var(--text3); text-align: center; padding: 20px; }
+
+  /* Confidence threshold info */
+  .conf-section { padding: 0 16px 16px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: var(--surface2); border: 1px solid var(--border2);
+    color: var(--text); font-size: 13px; padding: 10px 20px;
+    border-radius: 20px; z-index: 100;
+    opacity: 0; transition: opacity 0.3s;
+    white-space: nowrap; pointer-events: none;
+    backdrop-filter: blur(12px);
+  }
+  .toast.show { opacity: 1; }
+  .toast.success { border-color: var(--green); color: var(--green); }
+  .toast.error { border-color: var(--red); color: var(--red); }
+
+  /* Divider */
+  hr { border: none; border-top: 1px solid var(--border); margin: 0 20px 16px; }
+
+  /* Save btn */
+  .save-btn {
+    width: 100%; padding: 12px;
+    background: var(--blue-dim); border: 1px solid var(--blue);
+    border-radius: var(--radius-sm); color: var(--blue);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .save-btn:hover { background: rgba(88,166,255,0.18); }
+  .save-btn:active { transform: scale(0.98); }
+  .save-btn:disabled { opacity: 0.3; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C8.5 2 6 4 6 7c0 1.5.6 2.8 1.5 3.8L6 22h12l-1.5-11.2C17.4 9.8 18 8.5 18 7c0-3-2.5-5-6-5zm-2 7.5c-.8-.7-1.3-1.7-1.3-2.5 0-1.6 1.4-3 3.3-3s3.3 1.4 3.3 3c0 .8-.5 1.8-1.3 2.5H10z"/></svg>
+    </div>
+    <span class="logo-text">Pill<span>Count</span></span>
+  </div>
+  <div class="status-dot" id="statusDot">idle</div>
+</header>
+
+<!-- Camera -->
+<div class="camera-wrap" id="cameraWrap">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="canvas-overlay"></canvas>
+  <div class="scan-frame">
+    <div class="scan-line" id="scanLine"></div>
+    <div class="corner-tl"></div>
+    <div class="corner-tr"></div>
+    <div class="corner-bl"></div>
+    <div class="corner-br"></div>
+  </div>
+  <div class="cam-badge" id="camBadge">Camera off</div>
+  <div class="live-count-badge" id="liveCountBadge">0</div>
+  <div class="cam-placeholder" id="camPlaceholder">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+    <p>Tap "Start Camera" to begin</p>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn" id="camBtn" onclick="toggleCamera()">Start Camera</button>
+  <button class="btn primary" id="captureBtn" onclick="captureAndCount()" disabled>Capture & Count</button>
+</div>
+
+<!-- Model -->
+<div class="model-section">
+  <div class="model-header">
+    <span class="model-label">YOLOv8 Model</span>
+    <span class="model-status" id="modelStatus">not loaded</span>
+  </div>
+  <div class="model-body">
+    <div class="file-input-wrap">
+      <input type="file" id="modelFile" accept=".onnx" onchange="loadModel(this)">
+      <p>Drop your <span>.onnx</span> file here or tap to browse</p>
+    </div>
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <!-- Confidence slider -->
+    <div class="slider-row">
+      <span class="slider-label">CONF</span>
+      <input type="range" id="confSlider" min="0" max="100" value="50" step="1" oninput="updateConf(this.value)">
+      <span class="slider-val" id="confVal">50%</span>
+    </div>
+    <div class="slider-row">
+      <span class="slider-label">IOU</span>
+      <input type="range" id="iouSlider" min="0" max="100" value="45" step="1" oninput="updateIou(this.value)">
+      <span class="slider-val" id="iouVal">45%</span>
+    </div>
+  </div>
+</div>
+
+<!-- Results -->
+<div class="results">
+  <div class="results-header">
+    <span class="results-label">Result</span>
+    <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace" id="timestampLabel">—</span>
+  </div>
+  <div class="results-body">
+    <div class="count-display">
+      <span class="count-num" id="countNum">—</span>
+      <span class="count-unit">units</span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">TABLETS</div>
+        <div class="stat-val green" id="tabletCount">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">CAPSULES</div>
+        <div class="stat-val amber" id="capsuleCount">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">CONFIDENCE</div>
+        <div class="stat-val" id="avgConf">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">DETECTIONS</div>
+        <div class="stat-val" id="detCount">—</div>
+      </div>
+    </div>
+
+    <div class="drug-input-row">
+      <input type="text" class="drug-input" id="drugName" placeholder="Drug name (optional)">
+    </div>
+    <button class="save-btn" id="saveBtn" onclick="saveToHistory()" disabled>Save to history</button>
+  </div>
+</div>
+
+<hr>
+
+<!-- History -->
+<div class="history-section">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div class="section-title">History</div>
+    <button onclick="clearHistory()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:'DM Mono',monospace;">CLEAR</button>
+  </div>
+  <div class="history-list" id="historyList">
+    <div class="empty-history">No counts saved yet</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ONNX Runtime Web -->
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let session = null;
+let stream = null;
+let cameraOn = false;
+let lastResult = null;
+let confThreshold = 0.50;
+let iouThreshold = 0.45;
+let history = JSON.parse(localStorage.getItem('pillHistory') || '[]');
+const INPUT_SIZE = 640;
+
+// ─── ORT config ──────────────────────────────────────────────────────────────
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+
+// ─── UI helpers ──────────────────────────────────────────────────────────────
+function setStatus(text, type) {
+  const el = document.getElementById('statusDot');
+  el.textContent = text;
+  el.className = 'status-dot' + (type ? ' ' + type : '');
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.className = 'toast', 2400);
+}
+
+function updateConf(v) {
+  confThreshold = v / 100;
+  document.getElementById('confVal').textContent = v + '%';
+}
+function updateIou(v) {
+  iouThreshold = v / 100;
+  document.getElementById('iouVal').textContent = v + '%';
+}
+
+// ─── Model loading ────────────────────────────────────────────────────────────
+async function loadModel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('modelStatus');
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+
+  statusEl.textContent = 'loading…';
+  statusEl.className = 'model-status';
+  progressBar.style.display = 'block';
+  progressFill.style.width = '20%';
+
+  try {
+    const buffer = await file.arrayBuffer();
+    progressFill.style.width = '60%';
+    session = await ort.InferenceSession.create(buffer, {
+      executionProviders: ['wasm'],
+      graphOptimizationLevel: 'all',
+    });
+    progressFill.style.width = '100%';
+    setTimeout(() => progressBar.style.display = 'none', 600);
+    statusEl.textContent = '✓ ' + file.name;
+    statusEl.className = 'model-status loaded';
+    setStatus('ready', 'ready');
+    showToast('Model loaded successfully', 'success');
+    document.getElementById('captureBtn').disabled = !cameraOn;
+  } catch (e) {
+    statusEl.textContent = '✗ Failed to load';
+    statusEl.className = 'model-status error';
+    progressBar.style.display = 'none';
+    showToast('Model load failed: ' + e.message, 'error');
+    console.error(e);
+  }
+}
+
+// ─── Camera ──────────────────────────────────────────────────────────────────
+async function toggleCamera() {
+  const btn = document.getElementById('camBtn');
+  if (!cameraOn) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
+      });
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      document.getElementById('camPlaceholder').style.display = 'none';
+      document.getElementById('camBadge').textContent = 'LIVE';
+      cameraOn = true;
+      btn.textContent = 'Stop Camera';
+      btn.classList.add('danger');
+      if (session) document.getElementById('captureBtn').disabled = false;
+    } catch (e) {
+      showToast('Camera access denied', 'error');
+    }
+  } else {
+    stream.getTracks().forEach(t => t.stop());
+    const video = document.getElementById('video');
+    video.srcObject = null;
+    document.getElementById('camPlaceholder').style.display = 'flex';
+    document.getElementById('camBadge').textContent = 'Camera off';
+    clearOverlay();
+    cameraOn = false;
+    btn.textContent = 'Start Camera';
+    btn.classList.remove('danger');
+    document.getElementById('captureBtn').disabled = true;
+    document.getElementById('liveCountBadge').style.display = 'none';
+    document.getElementById('scanLine').classList.remove('active');
+    setStatus('idle', '');
+  }
+}
+
+// ─── Inference ───────────────────────────────────────────────────────────────
+async function captureAndCount() {
+  if (!session || !cameraOn) return;
+
+  setStatus('scanning', 'scanning');
+  document.getElementById('scanLine').classList.add('active');
+  document.getElementById('captureBtn').disabled = true;
+
+  try {
+    const video = document.getElementById('video');
+    const offscreen = document.createElement('canvas');
+    offscreen.width = INPUT_SIZE; offscreen.height = INPUT_SIZE;
+    const ctx = offscreen.getContext('2d');
+
+    // Letterbox
+    const vw = video.videoWidth, vh = video.videoHeight;
+    const scale = Math.min(INPUT_SIZE / vw, INPUT_SIZE / vh);
+    const sw = vw * scale, sh = vh * scale;
+    const ox = (INPUT_SIZE - sw) / 2, oy = (INPUT_SIZE - sh) / 2;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
+    ctx.drawImage(video, ox, oy, sw, sh);
+
+    // To float32 tensor [1, 3, 640, 640]
+    const imgData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
+    const data = imgData.data;
+    const tensor = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
+    for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
+      tensor[i] = data[i * 4] / 255;                          // R
+      tensor[INPUT_SIZE * INPUT_SIZE + i] = data[i * 4 + 1] / 255;    // G
+      tensor[2 * INPUT_SIZE * INPUT_SIZE + i] = data[i * 4 + 2] / 255; // B
+    }
+
+    const inputName = session.inputNames[0];
+    const feed = {};
+    feed[inputName] = new ort.Tensor('float32', tensor, [1, 3, INPUT_SIZE, INPUT_SIZE]);
+
+    const results = await session.run(feed);
+    const outputName = session.outputNames[0];
+    const output = results[outputName].data;
+    const outputShape = results[outputName].dims;
+
+    // Parse YOLOv8 output [1, num_classes+4, num_boxes] or [1, num_boxes, num_classes+4]
+    const detections = parseYoloOutput(output, outputShape);
+    const filtered = nms(detections);
+
+    // Draw overlays on real video frame size
+    drawOverlay(filtered, video, ox, oy, scale);
+
+    // Count by class (adapt class indices to your model)
+    let tablets = 0, capsules = 0;
+    filtered.forEach(d => {
+      if (d.cls === 0) tablets++;
+      else capsules++;
+    });
+    const total = filtered.length;
+    const avgConf = total > 0 ? (filtered.reduce((s, d) => s + d.conf, 0) / total) : 0;
+
+    // Update UI
+    document.getElementById('countNum').textContent = total;
+    document.getElementById('tabletCount').textContent = tablets;
+    document.getElementById('capsuleCount').textContent = capsules;
+    document.getElementById('avgConf').textContent = (avgConf * 100).toFixed(1) + '%';
+    document.getElementById('detCount').textContent = total;
+    document.getElementById('liveCountBadge').textContent = total;
+    document.getElementById('liveCountBadge').style.display = 'block';
+    document.getElementById('timestampLabel').textContent = new Date().toLocaleTimeString();
+    document.getElementById('saveBtn').disabled = false;
+
+    lastResult = { total, tablets, capsules, avgConf, timestamp: new Date().toISOString() };
+
+    setStatus('ready', 'ready');
+    showToast(total + ' unit' + (total !== 1 ? 's' : '') + ' detected', 'success');
+
+  } catch (e) {
+    console.error(e);
+    showToast('Inference error: ' + e.message, 'error');
+    setStatus('ready', 'ready');
+  }
+
+  document.getElementById('scanLine').classList.remove('active');
+  document.getElementById('captureBtn').disabled = false;
+}
+
+// ─── YOLOv8 output parser ─────────────────────────────────────────────────────
+function parseYoloOutput(data, shape) {
+  const detections = [];
+  // YOLOv8 default export: [1, 4+nc, 8400]
+  let numBoxes, stride;
+  if (shape[1] < shape[2]) {
+    // [1, 4+nc, num_boxes]
+    numBoxes = shape[2];
+    stride = shape[1];
+    for (let i = 0; i < numBoxes; i++) {
+      const cx = data[0 * numBoxes + i];
+      const cy = data[1 * numBoxes + i];
+      const w  = data[2 * numBoxes + i];
+      const h  = data[3 * numBoxes + i];
+      let maxConf = 0, cls = 0;
+      for (let c = 4; c < stride; c++) {
+        const v = data[c * numBoxes + i];
+        if (v > maxConf) { maxConf = v; cls = c - 4; }
+      }
+      if (maxConf >= confThreshold) {
+        detections.push({ cx, cy, w, h, conf: maxConf, cls });
+      }
+    }
+  } else {
+    // [1, num_boxes, 4+nc]
+    numBoxes = shape[1];
+    stride = shape[2];
+    for (let i = 0; i < numBoxes; i++) {
+      const base = i * stride;
+      const cx = data[base];
+      const cy = data[base + 1];
+      const w  = data[base + 2];
+      const h  = data[base + 3];
+      let maxConf = 0, cls = 0;
+      for (let c = 4; c < stride; c++) {
+        const v = data[base + c];
+        if (v > maxConf) { maxConf = v; cls = c - 4; }
+      }
+      if (maxConf >= confThreshold) {
+        detections.push({ cx, cy, w, h, conf: maxConf, cls });
+      }
+    }
+  }
+  return detections;
+}
+
+// ─── NMS ─────────────────────────────────────────────────────────────────────
+function iou(a, b) {
+  const ax1 = a.cx - a.w / 2, ay1 = a.cy - a.h / 2, ax2 = a.cx + a.w / 2, ay2 = a.cy + a.h / 2;
+  const bx1 = b.cx - b.w / 2, by1 = b.cy - b.h / 2, bx2 = b.cx + b.w / 2, by2 = b.cy + b.h / 2;
+  const ix1 = Math.max(ax1, bx1), iy1 = Math.max(ay1, by1);
+  const ix2 = Math.min(ax2, bx2), iy2 = Math.min(ay2, by2);
+  const inter = Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1);
+  return inter / (a.w * a.h + b.w * b.h - inter);
+}
+function nms(dets) {
+  dets.sort((a, b) => b.conf - a.conf);
+  const keep = [];
+  const suppressed = new Set();
+  for (let i = 0; i < dets.length; i++) {
+    if (suppressed.has(i)) continue;
+    keep.push(dets[i]);
+    for (let j = i + 1; j < dets.length; j++) {
+      if (!suppressed.has(j) && iou(dets[i], dets[j]) > iouThreshold) suppressed.add(j);
+    }
+  }
+  return keep;
+}
+
+// ─── Draw overlay ────────────────────────────────────────────────────────────
+function drawOverlay(dets, video, ox, oy, scale) {
+  const canvas = document.getElementById('canvas-overlay');
+  const wrap = document.getElementById('cameraWrap');
+  canvas.width = wrap.offsetWidth;
+  canvas.height = wrap.offsetHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const scaleX = canvas.width / INPUT_SIZE;
+  const scaleY = canvas.height / INPUT_SIZE;
+
+  dets.forEach(d => {
+    const x1 = (d.cx - d.w / 2) * scaleX;
+    const y1 = (d.cy - d.h / 2) * scaleY;
+    const bw = d.w * scaleX;
+    const bh = d.h * scaleY;
+
+    const color = d.cls === 0 ? '#3fb950' : '#d29922';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x1, y1, bw, bh);
+
+    ctx.fillStyle = color + 'cc';
+    ctx.fillRect(x1, y1 - 18, bw, 18);
+    ctx.fillStyle = '#000';
+    ctx.font = '500 11px DM Mono, monospace';
+    ctx.fillText((d.cls === 0 ? 'tablet' : 'capsule') + ' ' + (d.conf * 100).toFixed(0) + '%', x1 + 4, y1 - 5);
+  });
+}
+
+function clearOverlay() {
+  const canvas = document.getElementById('canvas-overlay');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ─── History ─────────────────────────────────────────────────────────────────
+function saveToHistory() {
+  if (!lastResult) return;
+  const drug = document.getElementById('drugName').value.trim() || 'Unknown drug';
+  const entry = { ...lastResult, drug };
+  history.unshift(entry);
+  if (history.length > 50) history.pop();
+  localStorage.setItem('pillHistory', JSON.stringify(history));
+  renderHistory();
+  showToast('Saved: ' + drug + ' — ' + lastResult.total + ' units', 'success');
+  document.getElementById('saveBtn').disabled = true;
+}
+
+function clearHistory() {
+  history = [];
+  localStorage.removeItem('pillHistory');
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (history.length === 0) {
+    list.innerHTML = '<div class="empty-history">No counts saved yet</div>';
+    return;
+  }
+  list.innerHTML = history.slice(0, 10).map(h => {
+    const d = new Date(h.timestamp);
+    const label = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `<div class="history-item">
+      <div>
+        <div class="history-drug">${h.drug}</div>
+        <div class="history-meta">${label} &middot; ${(h.avgConf * 100).toFixed(0)}% conf</div>
+      </div>
+      <div class="history-count">${h.total}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+renderHistory();
+</script>
+</body>
+</html>
