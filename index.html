@@ -5,279 +5,281 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PillCount</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
 
   :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface2: #1c2230;
-    --border: rgba(255,255,255,0.08);
-    --border2: rgba(255,255,255,0.14);
     --green: #3fb950;
-    --green-dim: rgba(63,185,80,0.12);
-    --green-glow: rgba(63,185,80,0.22);
+    --green-dim: rgba(63,185,80,0.15);
+    --green-glow: rgba(63,185,80,0.3);
     --amber: #d29922;
-    --amber-dim: rgba(210,153,34,0.12);
-    --blue: #58a6ff;
-    --blue-dim: rgba(88,166,255,0.1);
+    --red: #f85149;
     --text: #e6edf3;
     --text2: #8b949e;
-    --text3: #484f58;
-    --red: #f85149;
-    --red-dim: rgba(248,81,73,0.12);
-    --radius: 12px;
-    --radius-sm: 8px;
+    --text3: #3d444d;
+    --surface: rgba(22,27,34,0.92);
+    --border: rgba(255,255,255,0.1);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
   body {
-    background: var(--bg);
-    color: var(--text);
+    background: #000;
     font-family: 'DM Sans', sans-serif;
-    min-height: 100dvh;
+    height: 100dvh;
+    overflow: hidden;
     display: flex; flex-direction: column;
     max-width: 480px; margin: 0 auto;
-    overflow-x: hidden;
+    position: relative;
   }
 
-  header {
+  /* ── Full screen camera ── */
+  #video {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
     padding: 14px 18px;
     display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-    position: sticky; top: 0; z-index: 20;
+    z-index: 10;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
   }
-  .logo { display: flex; align-items: center; gap: 8px; }
-  .logo-pill {
-    width: 30px; height: 18px; border-radius: 9px;
-    background: var(--green-dim); border: 1.5px solid var(--green);
-    position: relative; overflow: hidden;
+  .app-name {
+    font-size: 16px; font-weight: 600; color: #fff; letter-spacing: -0.3px;
   }
-  .logo-pill::after {
-    content: ''; position: absolute;
-    left: 50%; top: 0; bottom: 0; width: 1.5px;
-    background: var(--green); opacity: 0.6;
-  }
-  .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
-  .logo-text span { color: var(--green); }
-  .status-chip {
+  .app-name span { color: var(--green); }
+  .model-chip {
     display: flex; align-items: center; gap: 5px;
     font-size: 11px; font-family: 'DM Mono', monospace;
     color: var(--text2); padding: 4px 10px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 20px;
+    background: rgba(0,0,0,0.5); border: 1px solid var(--border);
+    border-radius: 20px; backdrop-filter: blur(8px);
   }
-  .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); transition: all 0.3s; }
-  .status-chip.ready .dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
-  .status-chip.loading .dot { background: var(--amber); box-shadow: 0 0 5px var(--amber); animation: blink 0.8s infinite; }
-  .status-chip.scanning .dot { background: var(--blue); box-shadow: 0 0 5px var(--blue); animation: blink 0.6s infinite; }
-  .status-chip.error .dot { background: var(--red); }
+  .model-chip .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text3); transition: all 0.4s;
+  }
+  .model-chip.ready .dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .model-chip.loading .dot { background: var(--amber); animation: blink 0.8s infinite; }
+  .model-chip.error .dot { background: var(--red); }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-  .tabs {
-    display: flex; border-bottom: 1px solid var(--border);
-    background: var(--bg); position: sticky; top: 57px; z-index: 19;
+  /* ── Scan frame corners ── */
+  .frame {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1; pointer-events: none;
   }
-  .tab {
-    flex: 1; padding: 10px; text-align: center;
-    font-size: 12px; font-family: 'DM Mono', monospace;
-    color: var(--text3); cursor: pointer;
-    border-bottom: 2px solid transparent;
-    text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s;
+  .frame-box {
+    width: min(80vw, 320px); aspect-ratio: 1;
+    position: relative;
   }
-  .tab.active { color: var(--green); border-bottom-color: var(--green); }
-
-  .page { display: none; flex-direction: column; }
-  .page.active { display: flex; }
-
-  /* ── Model loader banner ── */
-  .model-banner {
-    margin: 14px 18px 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .model-banner-inner { padding: 14px 16px; }
-  .model-title { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
-  .progress-wrap { height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
-  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 2px; transition: width 0.4s ease; }
-  .progress-label { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text3); }
-  .progress-label span { color: var(--green); }
-
-  /* ── Camera ── */
-  .camera-wrap {
-    position: relative; background: #000;
-    aspect-ratio: 4/3; overflow: hidden; flex-shrink: 0;
-    margin-top: 14px;
-  }
-  #video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  #snap-canvas { display: none; }
-  .cam-overlay { position: absolute; inset: 0; pointer-events: none; }
-  .corner { position: absolute; width: 22px; height: 22px; border-color: var(--green); border-style: solid; opacity: 0.7; }
-  .corner.tl { top: 14px; left: 14px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
-  .corner.tr { top: 14px; right: 14px; border-width: 2px 2px 0 0; border-radius: 0 3px 0 0; }
-  .corner.bl { bottom: 14px; left: 14px; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; }
-  .corner.br { bottom: 14px; right: 14px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
+  .c { position: absolute; width: 28px; height: 28px; border-color: rgba(255,255,255,0.6); border-style: solid; }
+  .c.tl { top: 0; left: 0; border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
+  .c.tr { top: 0; right: 0; border-width: 2px 2px 0 0; border-radius: 0 4px 0 0; }
+  .c.bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; border-radius: 0 0 0 4px; }
+  .c.br { bottom: 0; right: 0; border-width: 0 2px 2px 0; border-radius: 0 0 4px 0; }
   .scan-line {
-    position: absolute; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, var(--green) 40%, var(--green) 60%, transparent);
+    position: absolute; left: 4px; right: 4px; height: 1.5px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
     opacity: 0;
   }
-  .scan-line.active { opacity: 0.8; animation: scandown 1.6s ease-in-out infinite; }
-  @keyframes scandown { 0%{top:5%} 100%{top:95%} }
-  .cam-hint {
-    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
-    background: rgba(0,0,0,0.65); border: 1px solid var(--border2);
-    color: var(--text2); font-size: 11px; font-family: 'DM Mono', monospace;
-    padding: 4px 12px; border-radius: 20px; white-space: nowrap;
-    backdrop-filter: blur(8px);
-  }
-  .cam-placeholder {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; color: var(--text3); background: var(--surface);
-  }
-  .cam-placeholder svg { width: 36px; height: 36px; opacity: 0.35; fill: currentColor; }
-  .cam-placeholder p { font-size: 13px; }
+  .scan-line.active { opacity: 0.9; animation: sweep 1.8s ease-in-out infinite; }
+  @keyframes sweep { 0%{top:4px} 100%{top:calc(100% - 4px)} }
 
-  /* Preview */
-  .preview-strip { background: #000; display: none; position: relative; }
-  .preview-strip img { width: 100%; max-height: 220px; object-fit: contain; display: block; }
-  .close-preview {
-    position: absolute; top: 8px; right: 8px;
-    background: rgba(0,0,0,0.7); border: 1px solid var(--border2);
-    color: var(--text2); font-size: 18px; line-height: 1;
-    width: 28px; height: 28px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center; cursor: pointer;
-  }
-
-  /* Canvas overlay for bounding boxes */
+  /* ── Bbox canvas ── */
   #bbox-canvas {
-    position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    z-index: 2; pointer-events: none;
   }
 
-  .controls { padding: 14px 18px; display: flex; gap: 10px; }
-  .btn {
-    flex: 1; padding: 12px 8px; border-radius: var(--radius);
-    border: 1px solid var(--border2);
-    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+  /* ── Loading overlay ── */
+  .loading-overlay {
+    position: fixed; inset: 0; z-index: 20;
+    background: rgba(0,0,0,0.85);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 20px;
+  }
+  .loading-overlay.hidden { display: none; }
+  .loading-pill {
+    width: 56px; height: 32px; border-radius: 16px;
+    border: 2px solid var(--green);
+    position: relative; overflow: hidden;
+  }
+  .loading-pill::before {
+    content: ''; position: absolute;
+    left: 50%; top: 0; bottom: 0; width: 2px; background: var(--green); opacity: 0.5;
+  }
+  .loading-pill::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, var(--green-dim), transparent);
+    animation: shimmer 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes shimmer { from{opacity:0.3} to{opacity:1} }
+  .loading-text { color: var(--text); font-size: 15px; font-weight: 500; }
+  .loading-sub { color: var(--text2); font-size: 12px; font-family: 'DM Mono', monospace; }
+  .loading-bar-wrap {
+    width: 200px; height: 3px;
+    background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;
+  }
+  .loading-bar { height: 100%; width: 0%; background: var(--green); border-radius: 2px; transition: width 0.4s; }
+
+  /* ── Bottom controls ── */
+  .bottom {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 100%; max-width: 480px;
+    padding: 20px 24px 36px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 60%, transparent);
+    z-index: 10;
+    display: flex; flex-direction: column; align-items: center; gap: 16px;
+  }
+  .hint-text {
+    font-size: 12px; color: rgba(255,255,255,0.5);
+    font-family: 'DM Mono', monospace; text-align: center;
+  }
+  .scan-btn {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: var(--green); border: 3px solid rgba(255,255,255,0.3);
     cursor: pointer; transition: all 0.15s;
-    background: var(--surface); color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 0 var(--green-glow);
+    position: relative;
   }
-  .btn:active { transform: scale(0.97); }
-  .btn.primary { background: var(--green-dim); border-color: var(--green); color: var(--green); box-shadow: 0 0 14px var(--green-glow); }
-  .btn.danger { background: var(--red-dim); border-color: var(--red); color: var(--red); }
-  .btn:disabled { opacity: 0.3; pointer-events: none; }
+  .scan-btn:active { transform: scale(0.93); }
+  .scan-btn.ready { animation: pulse-ring 2s ease-out infinite; }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 var(--green-glow); }
+    70% { box-shadow: 0 0 0 16px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .scan-btn svg { width: 30px; height: 30px; fill: #fff; }
+  .scan-btn:disabled { opacity: 0.4; animation: none; cursor: not-allowed; }
+  .history-btn {
+    position: fixed; bottom: 44px; right: 24px;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(0,0,0,0.6); border: 1px solid var(--border);
+    backdrop-filter: blur(8px); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 11;
+  }
+  .history-btn svg { width: 18px; height: 18px; fill: var(--text2); }
 
-  /* Result */
-  .result-card {
-    margin: 0 18px 16px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); overflow: hidden;
+  /* ── Result sheet ── */
+  .result-sheet {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%);
+    width: 100%; max-width: 480px;
+    background: #0d1117;
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    z-index: 30;
+    padding: 20px 24px 40px;
+    transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
   }
-  .result-header {
-    padding: 11px 16px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
+  .result-sheet.open { transform: translateX(-50%) translateY(0); }
+  .sheet-handle {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: var(--text3); margin: 0 auto 20px;
   }
-  .result-label { font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-  .result-body { padding: 16px; }
-  .big-count {
-    font-size: 64px; font-weight: 600; font-family: 'DM Mono', monospace;
-    color: var(--green); line-height: 1; margin-bottom: 4px; transition: all 0.3s;
+  .count-row {
+    display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;
   }
-  .big-unit { font-size: 14px; color: var(--text2); margin-bottom: 16px; }
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
-  .stat-card {
-    background: var(--surface2); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 10px 12px;
+  .count-big {
+    font-size: 72px; font-weight: 600; font-family: 'DM Mono', monospace;
+    color: var(--green); line-height: 1;
   }
-  .stat-label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
-  .stat-val { font-size: 18px; font-weight: 500; color: var(--text); }
-  .stat-val.green { color: var(--green); }
-  .stat-val.amber { color: var(--amber); }
-  .drug-row { display: flex; gap: 8px; align-items: center; }
+  .count-label { font-size: 16px; color: var(--text2); }
+  .conf-row {
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    color: var(--text2); margin-bottom: 20px;
+  }
+  .conf-row span { color: var(--green); }
+
+  /* Drug input */
+  .drug-wrap {
+    display: flex; gap: 8px; margin-bottom: 12px; align-items: center;
+  }
   .drug-input {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border2);
-    border-radius: var(--radius-sm); color: var(--text);
-    font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 9px 12px;
-    outline: none; transition: border-color 0.2s;
+    flex: 1; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 15px; padding: 12px 14px; outline: none;
+    transition: border-color 0.2s;
   }
   .drug-input:focus { border-color: var(--green); }
   .drug-input::placeholder { color: var(--text3); }
   .save-btn {
-    padding: 9px 16px; border-radius: var(--radius-sm);
-    background: var(--blue-dim); border: 1px solid var(--blue);
-    color: var(--blue); font-family: 'DM Sans', sans-serif;
-    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
-  }
-  .save-btn:disabled { opacity: 0.3; pointer-events: none; }
-
-  /* History */
-  .page-inner { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
-  .section-label { font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-  .history-list { display: flex; flex-direction: column; gap: 7px; }
-  .history-item {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); padding: 11px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    animation: slideIn 0.2s ease;
-  }
-  @keyframes slideIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
-  .history-drug { font-size: 14px; font-weight: 500; }
-  .history-meta { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .history-count { font-size: 22px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--green); }
-  .empty-state { text-align: center; font-size: 13px; color: var(--text3); padding: 24px 0; }
-  .clear-btn { font-size: 11px; color: var(--text3); background: none; border: none; cursor: pointer; font-family: 'DM Mono', monospace; }
-
-  /* Settings */
-  .settings-group { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .settings-row { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-  .settings-row:last-child { border-bottom: none; }
-  .settings-row-label { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-  .settings-row-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
-  .url-input {
-    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
-    border-radius: var(--radius-sm); color: var(--text);
-    font-family: 'DM Mono', monospace; font-size: 11px; padding: 10px 12px;
-    outline: none; transition: border-color 0.2s;
-  }
-  .url-input:focus { border-color: var(--green); }
-  .url-input::placeholder { color: var(--text3); }
-  .save-key-btn {
-    padding: 9px 18px; border-radius: var(--radius-sm);
+    padding: 12px 20px; border-radius: 10px;
     background: var(--green-dim); border: 1px solid var(--green);
     color: var(--green); font-family: 'DM Sans', sans-serif;
-    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
-    align-self: flex-start;
+    font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    white-space: nowrap;
   }
-  .save-key-btn:active { transform: scale(0.97); }
-  .url-status { font-size: 11px; font-family: 'DM Mono', monospace; }
-  .url-status.ok { color: var(--green); }
-  .url-status.none { color: var(--text3); }
-  .slider-row { display: flex; align-items: center; gap: 10px; }
-  .slider-label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; white-space: nowrap; min-width: 36px; }
-  input[type=range] {
-    flex: 1; height: 4px; appearance: none;
-    background: var(--border2); border-radius: 2px; outline: none;
+  .save-btn:active { transform: scale(0.97); }
+  .dismiss-btn {
+    width: 100%; padding: 13px;
+    background: none; border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text2);
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    cursor: pointer; transition: all 0.15s;
   }
-  input[type=range]::-webkit-slider-thumb {
-    appearance: none; width: 16px; height: 16px;
-    border-radius: 50%; background: var(--green); cursor: pointer; border: 2px solid var(--bg);
+  .dismiss-btn:active { background: rgba(255,255,255,0.05); }
+
+  /* ── History drawer ── */
+  .history-drawer {
+    position: fixed; inset: 0;
+    background: #0d1117; z-index: 40;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+    display: flex; flex-direction: column;
+    max-width: 480px; left: 50%; margin-left: -240px;
   }
-  .slider-val { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--green); min-width: 36px; text-align: right; }
-  .info-box {
-    background: var(--blue-dim); border: 1px solid rgba(88,166,255,0.2);
-    border-radius: var(--radius-sm); padding: 12px 14px;
-    font-size: 12px; color: var(--blue); line-height: 1.6;
+  .history-drawer.open { transform: translateX(0); }
+  @media (max-width: 480px) {
+    .history-drawer { left: 0; margin-left: 0; }
+  }
+  .drawer-header {
+    padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .drawer-title { font-size: 16px; font-weight: 600; color: var(--text); }
+  .drawer-close {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(255,255,255,0.07); border: none;
+    color: var(--text2); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .history-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .history-item:last-child { border-bottom: none; }
+  .h-drug { font-size: 15px; font-weight: 500; color: var(--text); }
+  .h-meta { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 3px; }
+  .h-count { font-size: 24px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--green); }
+  .empty-state { text-align: center; color: var(--text3); font-size: 14px; padding: 48px 0; }
+  .clear-row {
+    padding: 14px 20px; border-top: 1px solid var(--border);
+    display: flex; justify-content: center;
+  }
+  .clear-btn {
+    font-size: 12px; color: var(--red); background: none; border: none;
+    font-family: 'DM Mono', monospace; cursor: pointer; padding: 8px 16px;
+    border-radius: 8px; border: 1px solid rgba(248,81,73,0.2);
   }
 
+  /* ── Toast ── */
   .toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    background: var(--surface2); border: 1px solid var(--border2);
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    background: rgba(22,27,34,0.95); border: 1px solid var(--border);
     color: var(--text); font-size: 13px; padding: 9px 18px;
-    border-radius: 20px; z-index: 100; opacity: 0; transition: opacity 0.25s;
+    border-radius: 20px; z-index: 50; opacity: 0; transition: opacity 0.25s;
     white-space: nowrap; pointer-events: none; backdrop-filter: blur(12px);
   }
   .toast.show { opacity: 1; }
@@ -287,546 +289,289 @@
 </head>
 <body>
 
-<header>
-  <div class="logo">
-    <div class="logo-pill"></div>
-    <span class="logo-text">Pill<span>Count</span></span>
-  </div>
-  <div class="status-chip" id="statusChip"><div class="dot"></div><span id="statusText">idle</span></div>
-</header>
+<!-- Full screen camera -->
+<video id="video" autoplay playsinline muted></video>
+<canvas id="bbox-canvas"></canvas>
 
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('count')">Count</div>
-  <div class="tab" onclick="switchTab('history')">History</div>
-  <div class="tab" onclick="switchTab('settings')">Settings</div>
-</div>
-
-<!-- ── COUNT PAGE ── -->
-<div class="page active" id="page-count">
-
-  <!-- Model loading progress -->
-  <div class="model-banner" id="modelBanner">
-    <div class="model-banner-inner">
-      <div class="model-title">Loading AI model…</div>
-      <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
-      <div class="progress-label" id="progressLabel">Fetching from HuggingFace — <span id="progressPct">0%</span></div>
-    </div>
-  </div>
-
-  <div class="camera-wrap" id="cameraWrap">
-    <video id="video" autoplay playsinline muted></video>
-    <canvas id="snap-canvas"></canvas>
-    <canvas id="bbox-canvas"></canvas>
-    <div class="cam-overlay">
-      <div class="scan-line" id="scanLine"></div>
-      <div class="corner tl"></div><div class="corner tr"></div>
-      <div class="corner bl"></div><div class="corner br"></div>
-    </div>
-    <div class="cam-hint" id="camHint">Loading model…</div>
-    <div class="cam-placeholder" id="camPlaceholder">
-      <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
-      <p id="placeholderText">Loading model…</p>
-    </div>
-  </div>
-
-  <div class="preview-strip" id="previewStrip">
-    <img id="previewImg" src="" alt="">
-    <div class="close-preview" onclick="closePreview()">×</div>
-  </div>
-
-  <div class="controls">
-    <button class="btn" id="camBtn" onclick="toggleCamera()" disabled>Start Camera</button>
-    <button class="btn primary" id="countBtn" onclick="captureAndCount()" disabled>Capture & Count</button>
-  </div>
-
-  <div class="result-card">
-    <div class="result-header">
-      <span class="result-label">Result</span>
-      <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace" id="tsLabel">—</span>
-    </div>
-    <div class="result-body">
-      <div class="big-count" id="bigCount">—</div>
-      <div class="big-unit">units detected</div>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">TABLETS</div>
-          <div class="stat-val green" id="tabletCount">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">CAPSULES</div>
-          <div class="stat-val amber" id="capsuleCount">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">AVG CONF</div>
-          <div class="stat-val" id="avgConf">—</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">THRESHOLD</div>
-          <div class="stat-val" id="threshDisplay">50%</div>
-        </div>
-      </div>
-      <div class="drug-row">
-        <input type="text" class="drug-input" id="drugName" placeholder="Drug name (optional)">
-        <button class="save-btn" id="saveBtn" onclick="saveRecord()" disabled>Save</button>
-      </div>
-    </div>
-  </div>
-
-</div>
-
-<!-- ── HISTORY PAGE ── -->
-<div class="page" id="page-history">
-  <div class="page-inner">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <span class="section-label">Count history</span>
-      <button class="clear-btn" onclick="clearHistory()">CLEAR ALL</button>
-    </div>
-    <div class="history-list" id="historyList">
-      <div class="empty-state">No records saved yet</div>
-    </div>
+<!-- Scan frame -->
+<div class="frame">
+  <div class="frame-box">
+    <div class="c tl"></div><div class="c tr"></div>
+    <div class="c bl"></div><div class="c br"></div>
+    <div class="scan-line" id="scanLine"></div>
   </div>
 </div>
 
-<!-- ── SETTINGS PAGE ── -->
-<div class="page" id="page-settings">
-  <div class="page-inner">
+<!-- Top bar -->
+<div class="topbar">
+  <div class="app-name">Pill<span>Count</span></div>
+  <div class="model-chip loading" id="modelChip"><div class="dot"></div><span id="chipText">loading…</span></div>
+</div>
 
-    <div class="info-box">
-      The model is fetched once from HuggingFace and cached in your browser. No API costs. Works fully offline after first load.
-    </div>
+<!-- Bottom controls -->
+<div class="bottom">
+  <div class="hint-text" id="hintText">Loading model…</div>
+  <button class="scan-btn" id="scanBtn" onclick="captureAndCount()" disabled>
+    <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M23 5h-6v6h6V5zm-6 8h1.5v1.5H17V13zm1.5 1.5H20V16h-1.5v-1.5zM20 13h1.5v1.5H20V13zm-3 3h1.5v1.5H17V16zm1.5 1.5H20V19h-1.5v-1.5zM20 16h1.5v1.5H20V16zm1.5 1.5H23V19h-1.5v-1.5zM23 13h-1.5v1.5H23V13zm0 4.5h-1.5V19H23v-1.5z"/></svg>
+  </button>
+</div>
 
-    <div class="settings-group">
+<!-- History button -->
+<button class="history-btn" onclick="openHistory()">
+  <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7v3l4-4-4-4v3zm1 10h-2V8h2v4l2.28 1.36-1 1.72L14 13z"/></svg>
+</button>
 
-      <div class="settings-row">
-        <span class="settings-row-label">Model URL</span>
-        <span class="settings-row-desc">Direct link to your <code style="color:var(--green);font-size:11px">.onnx</code> file on HuggingFace.</span>
-        <input type="text" class="url-input" id="modelUrlInput"
-          placeholder="https://huggingface.co/YOUR_NAME/pill-counter/resolve/main/best_model.onnx">
-        <div style="display:flex;align-items:center;gap:12px">
-          <button class="save-key-btn" onclick="saveModelUrl()">Save & Reload</button>
-          <span class="url-status none" id="urlStatus">Not set</span>
-        </div>
-      </div>
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-pill"></div>
+  <div class="loading-text">Loading AI model</div>
+  <div class="loading-bar-wrap"><div class="loading-bar" id="loadingBar"></div></div>
+  <div class="loading-sub" id="loadingSub">Fetching from HuggingFace…</div>
+</div>
 
-      <div class="settings-row">
-        <span class="settings-row-label">Confidence threshold</span>
-        <span class="settings-row-desc">Minimum confidence to count a detection.</span>
-        <div class="slider-row">
-          <span class="slider-label">CONF</span>
-          <input type="range" id="confSlider" min="1" max="99" value="50" step="1" oninput="updateConf(this.value)">
-          <span class="slider-val" id="confVal">50%</span>
-        </div>
-        <div class="slider-row">
-          <span class="slider-label">IOU</span>
-          <input type="range" id="iouSlider" min="1" max="99" value="45" step="1" oninput="updateIou(this.value)">
-          <span class="slider-val" id="iouVal">45%</span>
-        </div>
-      </div>
+<!-- Result sheet -->
+<div class="result-sheet" id="resultSheet">
+  <div class="sheet-handle"></div>
+  <div class="count-row">
+    <div class="count-big" id="countBig">0</div>
+    <div class="count-label">pills detected</div>
+  </div>
+  <div class="conf-row">avg confidence <span id="confSpan">—</span></div>
+  <div class="drug-wrap">
+    <input type="text" class="drug-input" id="drugName" placeholder="Drug name (optional)">
+    <button class="save-btn" onclick="saveRecord()">Save</button>
+  </div>
+  <button class="dismiss-btn" onclick="closeSheet()">Scan again</button>
+</div>
 
-      <div class="settings-row">
-        <span class="settings-row-label">Class labels</span>
-        <span class="settings-row-desc">Comma-separated class names from your model, in order (class 0, class 1…).</span>
-        <input type="text" class="url-input" id="classLabels" value="tablet,capsule" placeholder="tablet,capsule">
-        <button class="save-key-btn" onclick="saveLabels()">Save labels</button>
-      </div>
-
-    </div>
+<!-- History drawer -->
+<div class="history-drawer" id="historyDrawer">
+  <div class="drawer-header">
+    <span class="drawer-title">History</span>
+    <button class="drawer-close" onclick="closeHistory()">×</button>
+  </div>
+  <div class="drawer-body" id="historyBody"></div>
+  <div class="clear-row">
+    <button class="clear-btn" onclick="clearHistory()">Clear all records</button>
   </div>
 </div>
 
+<canvas id="snap-canvas" style="display:none"></canvas>
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
 <script>
 // ── Config ────────────────────────────────────────────────────────────────
-// !! Replace this URL with your own HuggingFace URL after uploading !!
-const DEFAULT_MODEL_URL = 'https://huggingface.co/DiamondLiao/pillcount/resolve/main/best_model.onnx';
+const MODEL_URL = 'https://huggingface.co/DiamondLiao/pillcount/resolve/main/best_model.onnx';
+const CLASS_LABELS = ['tablet', 'capsule'];
+const CONF_THRESHOLD = 0.45;
+const IOU_THRESHOLD  = 0.45;
 const INPUT_SIZE = 640;
 ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
 
 // ── State ─────────────────────────────────────────────────────────────────
 let session = null;
-let stream = null;
-let cameraOn = false;
 let lastResult = null;
-let confThreshold = 0.50;
-let iouThreshold = 0.45;
-let classLabels = ['tablet', 'capsule'];
-let history = JSON.parse(localStorage.getItem('ph_history') || '[]');
+let history = JSON.parse(localStorage.getItem('pc_history') || '[]');
 
-// ── Init ──────────────────────────────────────────────────────────────────
-(async function init() {
-  // Load saved settings
-  const savedUrl = localStorage.getItem('ph_model_url');
-  const savedLabels = localStorage.getItem('ph_labels');
-  const savedConf = localStorage.getItem('ph_conf');
-  const savedIou = localStorage.getItem('ph_iou');
-
-  if (savedUrl) document.getElementById('modelUrlInput').value = savedUrl;
-  if (savedLabels) {
-    classLabels = savedLabels.split(',').map(s => s.trim());
-    document.getElementById('classLabels').value = savedLabels;
-  }
-  if (savedConf) {
-    confThreshold = parseFloat(savedConf);
-    const pct = Math.round(confThreshold * 100);
-    document.getElementById('confSlider').value = pct;
-    document.getElementById('confVal').textContent = pct + '%';
-    document.getElementById('threshDisplay').textContent = pct + '%';
-  }
-  if (savedIou) {
-    iouThreshold = parseFloat(savedIou);
-    document.getElementById('iouSlider').value = Math.round(iouThreshold * 100);
-    document.getElementById('iouVal').textContent = Math.round(iouThreshold * 100) + '%';
-  }
-
-  renderHistory();
-
-  const modelUrl = savedUrl || DEFAULT_MODEL_URL;
-  if (modelUrl.includes('YOUR_USERNAME')) {
-    // No URL set yet
-    document.getElementById('modelBanner').style.display = 'none';
-    document.getElementById('placeholderText').textContent = 'Set model URL in Settings';
-    document.getElementById('camHint').textContent = 'No model URL set';
-    document.getElementById('urlStatus').textContent = 'Not set';
-    document.getElementById('urlStatus').className = 'url-status none';
-    setStatus('idle', '');
-    return;
-  }
-
-  await loadModel(modelUrl);
+// ── Boot: camera + model in parallel ─────────────────────────────────────
+(async () => {
+  startCamera();
+  await loadModel();
 })();
 
-// ── Model loading ─────────────────────────────────────────────────────────
-async function loadModel(url) {
-  setStatus('loading', 'loading');
-  document.getElementById('modelBanner').style.display = 'block';
-  document.getElementById('progressLabel').innerHTML = 'Fetching from HuggingFace — <span id="progressPct">0%</span>';
-
+async function startCamera() {
   try {
-    // Fetch with progress
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
+    });
+    document.getElementById('video').srcObject = stream;
+  } catch(e) {
+    toast('Camera access denied', 'error');
+  }
+}
 
-    const contentLength = response.headers.get('content-length');
-    const total = contentLength ? parseInt(contentLength) : null;
-    const reader = response.body.getReader();
-    const chunks = [];
-    let received = 0;
-
+async function loadModel() {
+  try {
+    const res = await fetch(MODEL_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const total = parseInt(res.headers.get('content-length') || '0');
+    const reader = res.body.getReader();
+    const chunks = []; let received = 0;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      chunks.push(value);
-      received += value.length;
-      const pct = total ? Math.round((received / total) * 80) : null;
-      if (pct !== null) {
-        document.getElementById('progressFill').style.width = pct + '%';
-        document.getElementById('progressPct').textContent = pct + '%';
+      chunks.push(value); received += value.length;
+      if (total) {
+        const pct = Math.round((received / total) * 85);
+        document.getElementById('loadingBar').style.width = pct + '%';
+        document.getElementById('loadingSub').textContent = Math.round(received/1024/1024) + ' MB / ' + Math.round(total/1024/1024) + ' MB';
       }
     }
-
-    document.getElementById('progressFill').style.width = '85%';
-    document.getElementById('progressLabel').innerHTML = 'Initializing model… <span id="progressPct">85%</span>';
-
-    const buffer = new Uint8Array(received);
-    let pos = 0;
-    for (const chunk of chunks) { buffer.set(chunk, pos); pos += chunk.length; }
-
-    session = await ort.InferenceSession.create(buffer.buffer, {
-      executionProviders: ['wasm'],
-      graphOptimizationLevel: 'all',
+    document.getElementById('loadingSub').textContent = 'Initializing…';
+    document.getElementById('loadingBar').style.width = '92%';
+    const buf = new Uint8Array(received);
+    let pos = 0; for (const c of chunks) { buf.set(c, pos); pos += c.length; }
+    session = await ort.InferenceSession.create(buf.buffer, {
+      executionProviders: ['wasm'], graphOptimizationLevel: 'all'
     });
-
-    document.getElementById('progressFill').style.width = '100%';
-    document.getElementById('progressPct').textContent = '100%';
-
+    document.getElementById('loadingBar').style.width = '100%';
     setTimeout(() => {
-      document.getElementById('modelBanner').style.display = 'none';
-    }, 800);
-
-    document.getElementById('camBtn').disabled = false;
-    document.getElementById('camHint').textContent = 'Tap "Start Camera" to begin';
-    document.getElementById('placeholderText').textContent = 'Tap "Start Camera" to begin';
-    document.getElementById('urlStatus').textContent = '✓ Model loaded';
-    document.getElementById('urlStatus').className = 'url-status ok';
-    setStatus('ready', 'ready');
-    toast('Model ready!', 'success');
-
+      document.getElementById('loadingOverlay').classList.add('hidden');
+      document.getElementById('scanBtn').disabled = false;
+      document.getElementById('scanBtn').classList.add('ready');
+      document.getElementById('hintText').textContent = 'Point at pills and tap';
+      setChip('ready', 'ready');
+    }, 500);
   } catch(e) {
-    document.getElementById('modelBanner').style.display = 'none';
-    document.getElementById('placeholderText').textContent = 'Model load failed — check Settings';
-    setStatus('error', 'error');
-    toast('Model load failed: ' + e.message, 'error');
+    document.getElementById('loadingOverlay').classList.add('hidden');
+    document.getElementById('hintText').textContent = 'Model failed to load';
+    setChip('error', 'error');
+    toast('Model error: ' + e.message, 'error');
     console.error(e);
   }
 }
 
-// ── UI helpers ────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t, i) => {
-    t.classList.toggle('active', ['count','history','settings'][i] === name);
-  });
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-}
-function setStatus(text, type) {
-  const chip = document.getElementById('statusChip');
-  chip.className = 'status-chip' + (type ? ' ' + type : '');
-  document.getElementById('statusText').textContent = text;
-}
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className = 'toast show' + (type ? ' ' + type : '');
-  setTimeout(() => el.className = 'toast', 2600);
-}
-function updateConf(v) {
-  confThreshold = v / 100;
-  document.getElementById('confVal').textContent = v + '%';
-  document.getElementById('threshDisplay').textContent = v + '%';
-  localStorage.setItem('ph_conf', confThreshold);
-}
-function updateIou(v) {
-  iouThreshold = v / 100;
-  document.getElementById('iouVal').textContent = v + '%';
-  localStorage.setItem('ph_iou', iouThreshold);
-}
-
-// ── Camera ────────────────────────────────────────────────────────────────
-async function toggleCamera() {
-  if (!cameraOn) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
-      });
-      document.getElementById('video').srcObject = stream;
-      document.getElementById('camPlaceholder').style.display = 'none';
-      document.getElementById('camHint').textContent = 'LIVE — place pills in frame';
-      cameraOn = true;
-      document.getElementById('camBtn').textContent = 'Stop Camera';
-      document.getElementById('camBtn').classList.add('danger');
-      if (session) document.getElementById('countBtn').disabled = false;
-      setStatus('ready', 'ready');
-    } catch(e) { toast('Camera access denied', 'error'); }
-  } else {
-    stream.getTracks().forEach(t => t.stop());
-    document.getElementById('video').srcObject = null;
-    document.getElementById('camPlaceholder').style.display = 'flex';
-    document.getElementById('camHint').textContent = 'Camera off';
-    document.getElementById('previewStrip').style.display = 'none';
-    clearBboxCanvas();
-    cameraOn = false;
-    document.getElementById('camBtn').textContent = 'Start Camera';
-    document.getElementById('camBtn').classList.remove('danger');
-    document.getElementById('countBtn').disabled = true;
-    setStatus('ready', 'ready');
-  }
-}
-function closePreview() { document.getElementById('previewStrip').style.display = 'none'; }
-
-// ── Inference ─────────────────────────────────────────────────────────────
+// ── Capture & count ────────────────────────────────────────────────────────
 async function captureAndCount() {
-  if (!session || !cameraOn) return;
-
-  setStatus('scanning', 'scanning');
+  if (!session) return;
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true; btn.classList.remove('ready');
   document.getElementById('scanLine').classList.add('active');
-  document.getElementById('countBtn').disabled = true;
-  document.getElementById('bigCount').textContent = '…';
-  document.getElementById('saveBtn').disabled = true;
-  clearBboxCanvas();
+  document.getElementById('hintText').textContent = 'Counting…';
+  setChip('loading', 'counting');
+  clearBbox();
 
   try {
     const video = document.getElementById('video');
-    const canvas = document.getElementById('snap-canvas');
-    canvas.width = INPUT_SIZE; canvas.height = INPUT_SIZE;
-    const ctx = canvas.getContext('2d');
-
-    // Letterbox to 640×640
+    const snap = document.getElementById('snap-canvas');
+    snap.width = INPUT_SIZE; snap.height = INPUT_SIZE;
+    const ctx = snap.getContext('2d');
     const vw = video.videoWidth, vh = video.videoHeight;
-    const scale = Math.min(INPUT_SIZE / vw, INPUT_SIZE / vh);
-    const sw = vw * scale, sh = vh * scale;
-    const ox = (INPUT_SIZE - sw) / 2, oy = (INPUT_SIZE - sh) / 2;
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
+    const scale = Math.min(INPUT_SIZE/vw, INPUT_SIZE/vh);
+    const sw = vw*scale, sh = vh*scale;
+    const ox = (INPUT_SIZE-sw)/2, oy = (INPUT_SIZE-sh)/2;
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,INPUT_SIZE,INPUT_SIZE);
     ctx.drawImage(video, ox, oy, sw, sh);
 
-    // Preview
-    document.getElementById('previewImg').src = canvas.toDataURL('image/jpeg', 0.8);
-    document.getElementById('previewStrip').style.display = 'block';
-
-    // Build tensor
-    const imgData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE).data;
-    const tensor = new Float32Array(3 * INPUT_SIZE * INPUT_SIZE);
-    for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
-      tensor[i]                          = imgData[i * 4]     / 255;
-      tensor[INPUT_SIZE * INPUT_SIZE + i]     = imgData[i * 4 + 1] / 255;
-      tensor[2 * INPUT_SIZE * INPUT_SIZE + i] = imgData[i * 4 + 2] / 255;
+    const px = ctx.getImageData(0,0,INPUT_SIZE,INPUT_SIZE).data;
+    const t = new Float32Array(3*INPUT_SIZE*INPUT_SIZE);
+    for (let i=0;i<INPUT_SIZE*INPUT_SIZE;i++) {
+      t[i]=px[i*4]/255; t[INPUT_SIZE*INPUT_SIZE+i]=px[i*4+1]/255; t[2*INPUT_SIZE*INPUT_SIZE+i]=px[i*4+2]/255;
     }
+    const feed = {}; feed[session.inputNames[0]] = new ort.Tensor('float32',t,[1,3,INPUT_SIZE,INPUT_SIZE]);
+    const out = (await session.run(feed))[session.outputNames[0]];
+    const dets = nms(parse(out.data, out.dims));
 
-    const inputName = session.inputNames[0];
-    const feed = {};
-    feed[inputName] = new ort.Tensor('float32', tensor, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-    const results = await session.run(feed);
-    const out = results[session.outputNames[0]];
+    const total = dets.length;
+    const avgConf = total ? dets.reduce((s,d)=>s+d.conf,0)/total : 0;
+    drawBoxes(dets, video);
 
-    const detections = parseOutput(out.data, out.dims);
-    const kept = nms(detections);
-
-    // Count by class
-    const counts = {};
-    classLabels.forEach(l => counts[l] = 0);
-    kept.forEach(d => {
-      const label = classLabels[d.cls] || ('class' + d.cls);
-      counts[label] = (counts[label] || 0) + 1;
-    });
-
-    const total = kept.length;
-    const avgConf = total > 0 ? kept.reduce((s, d) => s + d.conf, 0) / total : 0;
-
-    // Draw boxes
-    drawBoxes(kept, video);
-
-    // Update UI
-    document.getElementById('bigCount').textContent = total;
-    document.getElementById('tabletCount').textContent = counts['tablet'] ?? counts[classLabels[0]] ?? '—';
-    document.getElementById('capsuleCount').textContent = counts['capsule'] ?? counts[classLabels[1]] ?? '—';
-    document.getElementById('avgConf').textContent = total ? (avgConf * 100).toFixed(1) + '%' : '—';
-    document.getElementById('tsLabel').textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    document.getElementById('saveBtn').disabled = false;
-    lastResult = { total, counts, avgConf, timestamp: new Date().toISOString() };
-
-    setStatus('ready', 'ready');
-    toast(total + ' unit' + (total !== 1 ? 's' : '') + ' detected', 'success');
+    document.getElementById('countBig').textContent = total;
+    document.getElementById('confSpan').textContent = total ? (avgConf*100).toFixed(1)+'%' : '—';
+    document.getElementById('drugName').value = '';
+    lastResult = { total, avgConf, timestamp: new Date().toISOString() };
+    document.getElementById('resultSheet').classList.add('open');
+    setChip('ready', 'ready');
 
   } catch(e) {
-    document.getElementById('bigCount').textContent = '—';
-    setStatus('error', 'error');
-    toast('Inference error: ' + e.message, 'error');
+    toast('Error: ' + e.message, 'error');
+    setChip('error', 'error');
     console.error(e);
   }
 
   document.getElementById('scanLine').classList.remove('active');
-  document.getElementById('countBtn').disabled = false;
+  btn.disabled = false; btn.classList.add('ready');
+  document.getElementById('hintText').textContent = 'Point at pills and tap';
 }
 
-// ── YOLO output parser ────────────────────────────────────────────────────
-function parseOutput(data, shape) {
-  const dets = [];
-  // Support both [1, 4+nc, boxes] and [1, boxes, 4+nc]
-  const transposed = shape[1] < shape[2];
-  const numBoxes = transposed ? shape[2] : shape[1];
-  const stride   = transposed ? shape[1] : shape[2];
-
-  for (let i = 0; i < numBoxes; i++) {
-    let cx, cy, w, h, maxConf = 0, cls = 0;
-    if (transposed) {
-      cx = data[0 * numBoxes + i]; cy = data[1 * numBoxes + i];
-      w  = data[2 * numBoxes + i]; h  = data[3 * numBoxes + i];
-      for (let c = 4; c < stride; c++) {
-        const v = data[c * numBoxes + i];
-        if (v > maxConf) { maxConf = v; cls = c - 4; }
-      }
-    } else {
-      const b = i * stride;
-      cx = data[b]; cy = data[b+1]; w = data[b+2]; h = data[b+3];
-      for (let c = 4; c < stride; c++) {
-        const v = data[b + c];
-        if (v > maxConf) { maxConf = v; cls = c - 4; }
-      }
-    }
-    if (maxConf >= confThreshold) dets.push({ cx, cy, w, h, conf: maxConf, cls });
+// ── Parser + NMS ──────────────────────────────────────────────────────────
+function parse(data, shape) {
+  const dets=[]; const tr=shape[1]<shape[2];
+  const nb=tr?shape[2]:shape[1], st=tr?shape[1]:shape[2];
+  for(let i=0;i<nb;i++){
+    let cx,cy,w,h,mc=0,cls=0;
+    if(tr){cx=data[i];cy=data[nb+i];w=data[2*nb+i];h=data[3*nb+i];for(let c=4;c<st;c++){const v=data[c*nb+i];if(v>mc){mc=v;cls=c-4;}}}
+    else{const b=i*st;cx=data[b];cy=data[b+1];w=data[b+2];h=data[b+3];for(let c=4;c<st;c++){const v=data[b+c];if(v>mc){mc=v;cls=c-4;}}}
+    if(mc>=CONF_THRESHOLD)dets.push({cx,cy,w,h,conf:mc,cls});
   }
   return dets;
 }
-
-// ── NMS ───────────────────────────────────────────────────────────────────
-function iou(a, b) {
+function iou(a,b){
   const ax1=a.cx-a.w/2,ay1=a.cy-a.h/2,ax2=a.cx+a.w/2,ay2=a.cy+a.h/2;
   const bx1=b.cx-b.w/2,by1=b.cy-b.h/2,bx2=b.cx+b.w/2,by2=b.cy+b.h/2;
   const ix=Math.max(0,Math.min(ax2,bx2)-Math.max(ax1,bx1));
   const iy=Math.max(0,Math.min(ay2,by2)-Math.max(ay1,by1));
-  const inter=ix*iy;
-  return inter/(a.w*a.h+b.w*b.h-inter);
+  return ix*iy/(a.w*a.h+b.w*b.h-ix*iy);
 }
-function nms(dets) {
+function nms(dets){
   dets.sort((a,b)=>b.conf-a.conf);
-  const keep=[]; const sup=new Set();
-  for(let i=0;i<dets.length;i++){
-    if(sup.has(i))continue; keep.push(dets[i]);
-    for(let j=i+1;j<dets.length;j++){
-      if(!sup.has(j)&&iou(dets[i],dets[j])>iouThreshold)sup.add(j);
-    }
-  }
+  const keep=[],sup=new Set();
+  for(let i=0;i<dets.length;i++){if(sup.has(i))continue;keep.push(dets[i]);for(let j=i+1;j<dets.length;j++){if(!sup.has(j)&&iou(dets[i],dets[j])>IOU_THRESHOLD)sup.add(j);}}
   return keep;
 }
 
-// ── Bounding box overlay ──────────────────────────────────────────────────
-const COLORS = ['#3fb950','#d29922','#58a6ff','#f85149','#bc8cff'];
+// ── Draw boxes ────────────────────────────────────────────────────────────
+const COLORS=['#3fb950','#d29922','#58a6ff','#f85149'];
 function drawBoxes(dets, video) {
-  const canvas = document.getElementById('bbox-canvas');
-  const wrap = document.getElementById('cameraWrap');
-  canvas.width = wrap.offsetWidth;
-  canvas.height = wrap.offsetHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const sx = canvas.width / INPUT_SIZE, sy = canvas.height / INPUT_SIZE;
-  dets.forEach(d => {
-    const x1=(d.cx-d.w/2)*sx, y1=(d.cy-d.h/2)*sy;
-    const bw=d.w*sx, bh=d.h*sy;
-    const color = COLORS[d.cls % COLORS.length];
-    const label = (classLabels[d.cls] || 'cls'+d.cls) + ' ' + (d.conf*100).toFixed(0)+'%';
-    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.strokeRect(x1,y1,bw,bh);
-    ctx.fillStyle=color+'cc'; ctx.fillRect(x1,y1-18,Math.min(bw,100),18);
-    ctx.fillStyle='#000'; ctx.font='500 11px DM Mono,monospace';
-    ctx.fillText(label, x1+4, y1-5);
+  const c=document.getElementById('bbox-canvas');
+  c.width=window.innerWidth; c.height=window.innerHeight;
+  const ctx=c.getContext('2d');
+  const vw=video.videoWidth,vh=video.videoHeight;
+  const scale=Math.max(c.width/vw,c.height/vh);
+  const rw=vw*scale,rh=vh*scale;
+  const rx=(c.width-rw)/2,ry=(c.height-rh)/2;
+  const sx=rw/INPUT_SIZE,sy=rh/INPUT_SIZE;
+  dets.forEach(d=>{
+    const x1=(d.cx-d.w/2)*sx+rx,y1=(d.cy-d.h/2)*sy+ry,bw=d.w*sx,bh=d.h*sy;
+    const color=COLORS[d.cls%COLORS.length];
+    ctx.strokeStyle=color;ctx.lineWidth=2;ctx.strokeRect(x1,y1,bw,bh);
+    const label=(CLASS_LABELS[d.cls]||'cls'+d.cls)+' '+(d.conf*100).toFixed(0)+'%';
+    ctx.fillStyle=color+'dd';ctx.fillRect(x1,y1-20,ctx.measureText(label).width+10,20);
+    ctx.fillStyle='#000';ctx.font='500 11px DM Mono,monospace';ctx.fillText(label,x1+5,y1-6);
   });
 }
-function clearBboxCanvas() {
-  const c = document.getElementById('bbox-canvas');
-  c.getContext('2d').clearRect(0,0,c.width,c.height);
+function clearBbox(){const c=document.getElementById('bbox-canvas');c.getContext('2d').clearRect(0,0,c.width,c.height);}
+
+// ── Sheet ─────────────────────────────────────────────────────────────────
+function closeSheet(){
+  document.getElementById('resultSheet').classList.remove('open');
+  clearBbox();
 }
 
 // ── History ───────────────────────────────────────────────────────────────
-function saveRecord() {
-  if (!lastResult) return;
-  const drug = document.getElementById('drugName').value.trim() || 'Unnamed drug';
-  history.unshift({ drug, ...lastResult });
-  if (history.length > 100) history.pop();
-  localStorage.setItem('ph_history', JSON.stringify(history));
-  renderHistory();
-  document.getElementById('saveBtn').disabled = true;
-  toast('Saved — ' + drug + ' · ' + lastResult.total + ' units', 'success');
+function saveRecord(){
+  if(!lastResult)return;
+  const drug=document.getElementById('drugName').value.trim()||'Unnamed';
+  history.unshift({drug,...lastResult});
+  if(history.length>100)history.pop();
+  localStorage.setItem('pc_history',JSON.stringify(history));
+  closeSheet();
+  toast('Saved — '+drug+' · '+lastResult.total+' units','success');
 }
-function clearHistory() {
-  history = []; localStorage.removeItem('ph_history'); renderHistory();
-}
-function renderHistory() {
-  const list = document.getElementById('historyList');
-  if (!history.length) { list.innerHTML = '<div class="empty-state">No records saved yet</div>'; return; }
-  list.innerHTML = history.slice(0, 30).map(h => {
-    const d = new Date(h.timestamp);
-    const label = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    return `<div class="history-item">
-      <div><div class="history-drug">${h.drug}</div><div class="history-meta">${label}</div></div>
-      <div class="history-count">${h.total}</div>
-    </div>`;
+function openHistory(){renderHistory();document.getElementById('historyDrawer').classList.add('open');}
+function closeHistory(){document.getElementById('historyDrawer').classList.remove('open');}
+function clearHistory(){history=[];localStorage.removeItem('pc_history');renderHistory();}
+function renderHistory(){
+  const el=document.getElementById('historyBody');
+  if(!history.length){el.innerHTML='<div class="empty-state">No records yet</div>';return;}
+  el.innerHTML=history.slice(0,50).map(h=>{
+    const d=new Date(h.timestamp);
+    const label=d.toLocaleDateString()+' '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    return`<div class="history-item"><div><div class="h-drug">${h.drug}</div><div class="h-meta">${label}</div></div><div class="h-count">${h.total}</div></div>`;
   }).join('');
 }
 
-// ── Settings ──────────────────────────────────────────────────────────────
-function saveModelUrl() {
-  const url = document.getElementById('modelUrlInput').value.trim();
-  if (!url.startsWith('http')) { toast('Enter a valid URL', 'error'); return; }
-  localStorage.setItem('ph_model_url', url);
-  toast('Saved — reloading model…', 'success');
-  setTimeout(() => { session = null; loadModel(url); }, 500);
+// ── Helpers ───────────────────────────────────────────────────────────────
+function setChip(cls,text){
+  const c=document.getElementById('modelChip');
+  c.className='model-chip '+cls;
+  document.getElementById('chipText').textContent=text;
 }
-function saveLabels() {
-  const val = document.getElementById('classLabels').value.trim();
-  classLabels = val.split(',').map(s => s.trim());
-  localStorage.setItem('ph_labels', val);
-  toast('Labels saved: ' + classLabels.join(', '), 'success');
+function toast(msg,type){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast show'+(type?' '+type:'');
+  setTimeout(()=>el.className='toast',2600);
 }
 </script>
 </body>
