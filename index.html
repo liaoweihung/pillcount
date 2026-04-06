@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>PillCount — Pharmacy Counter</title>
+<title>PillCount</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -15,7 +15,7 @@
     --border2: rgba(255,255,255,0.14);
     --green: #3fb950;
     --green-dim: rgba(63,185,80,0.12);
-    --green-glow: rgba(63,185,80,0.25);
+    --green-glow: rgba(63,185,80,0.22);
     --amber: #d29922;
     --amber-dim: rgba(210,153,34,0.12);
     --blue: #58a6ff;
@@ -26,7 +26,7 @@
     --red: #f85149;
     --red-dim: rgba(248,81,73,0.12);
     --radius: 12px;
-    --radius-sm: 7px;
+    --radius-sm: 8px;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -36,578 +36,613 @@
     color: var(--text);
     font-family: 'DM Sans', sans-serif;
     min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
-    position: relative;
+    display: flex; flex-direction: column;
+    max-width: 480px; margin: 0 auto;
     overflow-x: hidden;
   }
 
-  /* Header */
   header {
-    padding: 16px 20px 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
     border-bottom: 1px solid var(--border);
     background: var(--bg);
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: sticky; top: 0; z-index: 20;
   }
-  .logo {
-    display: flex; align-items: center; gap: 8px;
+  .logo { display: flex; align-items: center; gap: 8px; }
+  .logo-pill {
+    width: 30px; height: 18px; border-radius: 9px;
+    background: var(--green-dim); border: 1.5px solid var(--green);
+    position: relative; overflow: hidden;
   }
-  .logo-icon {
-    width: 28px; height: 28px;
-    background: var(--green-dim);
-    border: 1px solid var(--green);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
+  .logo-pill::after {
+    content: ''; position: absolute;
+    left: 50%; top: 0; bottom: 0; width: 1.5px;
+    background: var(--green); opacity: 0.6;
   }
-  .logo-icon svg { width: 16px; height: 16px; fill: var(--green); }
   .logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
   .logo-text span { color: var(--green); }
-  .status-dot {
-    display: flex; align-items: center; gap: 6px;
+  .status-chip {
+    display: flex; align-items: center; gap: 5px;
     font-size: 11px; font-family: 'DM Mono', monospace;
     color: var(--text2); padding: 4px 10px;
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 20px;
   }
-  .status-dot::before {
-    content: '';
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--text3);
-    transition: background 0.3s;
-  }
-  .status-dot.ready::before { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .status-dot.scanning::before { background: var(--amber); box-shadow: 0 0 6px var(--amber); animation: pulse 1s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .status-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); transition: all 0.3s; }
+  .status-chip.ready .dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
+  .status-chip.loading .dot { background: var(--amber); box-shadow: 0 0 5px var(--amber); animation: blink 0.8s infinite; }
+  .status-chip.scanning .dot { background: var(--blue); box-shadow: 0 0 5px var(--blue); animation: blink 0.6s infinite; }
+  .status-chip.error .dot { background: var(--red); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-  /* Camera section */
-  .camera-wrap {
-    position: relative;
-    background: #000;
-    aspect-ratio: 4/3;
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--bg); position: sticky; top: 57px; z-index: 19;
+  }
+  .tab {
+    flex: 1; padding: 10px; text-align: center;
+    font-size: 12px; font-family: 'DM Mono', monospace;
+    color: var(--text3); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.15s;
+  }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+  .page { display: none; flex-direction: column; }
+  .page.active { display: flex; }
+
+  /* ── Model loader banner ── */
+  .model-banner {
+    margin: 14px 18px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     overflow: hidden;
   }
-  #video {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-  #canvas-overlay {
-    position: absolute; inset: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-  }
-  .scan-frame {
-    position: absolute; inset: 0;
-    pointer-events: none;
-  }
-  .scan-line {
-    position: absolute;
-    left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--green), transparent);
-    opacity: 0;
-    animation: none;
-  }
-  .scan-line.active {
-    opacity: 1;
-    animation: scanline 2s linear infinite;
-  }
-  @keyframes scanline {
-    0% { top: 0%; }
-    100% { top: 100%; }
-  }
-  .corner-tl, .corner-tr, .corner-bl, .corner-br {
-    position: absolute; width: 24px; height: 24px;
-    border-color: var(--green); border-style: solid; opacity: 0.7;
-  }
-  .corner-tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; border-radius: 4px 0 0 0; }
-  .corner-tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; border-radius: 0 4px 0 0; }
-  .corner-bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; border-radius: 0 0 0 4px; }
-  .corner-br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; border-radius: 0 0 4px 0; }
+  .model-banner-inner { padding: 14px 16px; }
+  .model-title { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+  .progress-wrap { height: 4px; background: var(--border2); border-radius: 2px; overflow: hidden; margin-bottom: 8px; }
+  .progress-fill { height: 100%; width: 0%; background: var(--green); border-radius: 2px; transition: width 0.4s ease; }
+  .progress-label { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text3); }
+  .progress-label span { color: var(--green); }
 
-  .cam-badge {
-    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-    background: rgba(0,0,0,0.7); border: 1px solid var(--border2);
+  /* ── Camera ── */
+  .camera-wrap {
+    position: relative; background: #000;
+    aspect-ratio: 4/3; overflow: hidden; flex-shrink: 0;
+    margin-top: 14px;
+  }
+  #video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #snap-canvas { display: none; }
+  .cam-overlay { position: absolute; inset: 0; pointer-events: none; }
+  .corner { position: absolute; width: 22px; height: 22px; border-color: var(--green); border-style: solid; opacity: 0.7; }
+  .corner.tl { top: 14px; left: 14px; border-width: 2px 0 0 2px; border-radius: 3px 0 0 0; }
+  .corner.tr { top: 14px; right: 14px; border-width: 2px 2px 0 0; border-radius: 0 3px 0 0; }
+  .corner.bl { bottom: 14px; left: 14px; border-width: 0 0 2px 2px; border-radius: 0 0 0 3px; }
+  .corner.br { bottom: 14px; right: 14px; border-width: 0 2px 2px 0; border-radius: 0 0 3px 0; }
+  .scan-line {
+    position: absolute; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--green) 40%, var(--green) 60%, transparent);
+    opacity: 0;
+  }
+  .scan-line.active { opacity: 0.8; animation: scandown 1.6s ease-in-out infinite; }
+  @keyframes scandown { 0%{top:5%} 100%{top:95%} }
+  .cam-hint {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.65); border: 1px solid var(--border2);
     color: var(--text2); font-size: 11px; font-family: 'DM Mono', monospace;
     padding: 4px 12px; border-radius: 20px; white-space: nowrap;
     backdrop-filter: blur(8px);
   }
-  .live-count-badge {
-    position: absolute; bottom: 12px; right: 12px;
-    background: rgba(0,0,0,0.75); border: 1px solid var(--green);
-    color: var(--green); font-size: 20px; font-weight: 600;
-    font-family: 'DM Mono', monospace;
-    padding: 6px 14px; border-radius: var(--radius-sm);
-    backdrop-filter: blur(8px);
-    display: none;
-  }
   .cam-placeholder {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 12px; color: var(--text3);
-    background: var(--surface);
+    gap: 10px; color: var(--text3); background: var(--surface);
   }
-  .cam-placeholder svg { width: 40px; height: 40px; opacity: 0.4; }
+  .cam-placeholder svg { width: 36px; height: 36px; opacity: 0.35; fill: currentColor; }
   .cam-placeholder p { font-size: 13px; }
 
-  /* Controls */
-  .controls {
-    padding: 16px 20px;
-    display: flex; gap: 10px;
+  /* Preview */
+  .preview-strip { background: #000; display: none; position: relative; }
+  .preview-strip img { width: 100%; max-height: 220px; object-fit: contain; display: block; }
+  .close-preview {
+    position: absolute; top: 8px; right: 8px;
+    background: rgba(0,0,0,0.7); border: 1px solid var(--border2);
+    color: var(--text2); font-size: 18px; line-height: 1;
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
+
+  /* Canvas overlay for bounding boxes */
+  #bbox-canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+  }
+
+  .controls { padding: 14px 18px; display: flex; gap: 10px; }
   .btn {
-    flex: 1; padding: 13px 10px;
-    border-radius: var(--radius);
-    font-family: 'DM Sans', sans-serif;
-    font-size: 14px; font-weight: 500;
+    flex: 1; padding: 12px 8px; border-radius: var(--radius);
     border: 1px solid var(--border2);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
     cursor: pointer; transition: all 0.15s;
-    background: var(--surface);
-    color: var(--text);
+    background: var(--surface); color: var(--text);
   }
   .btn:active { transform: scale(0.97); }
-  .btn.primary {
-    background: var(--green-dim);
-    border-color: var(--green);
-    color: var(--green);
-    box-shadow: 0 0 16px var(--green-glow);
-  }
-  .btn.primary:hover { background: rgba(63,185,80,0.2); }
-  .btn.danger {
-    background: var(--red-dim);
-    border-color: var(--red);
-    color: var(--red);
-  }
-  .btn:disabled { opacity: 0.35; pointer-events: none; }
+  .btn.primary { background: var(--green-dim); border-color: var(--green); color: var(--green); box-shadow: 0 0 14px var(--green-glow); }
+  .btn.danger { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+  .btn:disabled { opacity: 0.3; pointer-events: none; }
 
-  /* Model loader */
-  .model-section {
-    margin: 0 20px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
+  /* Result */
+  .result-card {
+    margin: 0 18px 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
   }
-  .model-header {
-    padding: 12px 16px;
-    display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-  }
-  .model-label { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-  .model-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-  .file-input-wrap {
-    position: relative;
-    background: var(--surface2);
-    border: 1px dashed var(--border2);
-    border-radius: var(--radius-sm);
-    padding: 14px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-  .file-input-wrap:hover { border-color: var(--green); }
-  .file-input-wrap input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; }
-  .file-input-wrap p { font-size: 13px; color: var(--text2); }
-  .file-input-wrap p span { color: var(--green); font-weight: 500; }
-  .model-status {
-    font-size: 12px; font-family: 'DM Mono', monospace;
-    display: flex; align-items: center; gap: 8px;
-    color: var(--text3);
-  }
-  .model-status.loaded { color: var(--green); }
-  .model-status.error { color: var(--red); }
-  .progress-bar {
-    height: 2px; background: var(--border);
-    border-radius: 2px; overflow: hidden; display: none;
-  }
-  .progress-fill {
-    height: 100%; width: 0%;
-    background: var(--green);
-    border-radius: 2px;
-    transition: width 0.3s;
-  }
-
-  /* Results panel */
-  .results {
-    margin: 0 20px 16px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-  .results-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
+  .result-header {
+    padding: 11px 16px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
   }
-  .results-label { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-  .results-body { padding: 16px; }
-  .count-display {
-    display: flex; align-items: baseline; gap: 6px;
-    margin-bottom: 16px;
+  .result-label { font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-body { padding: 16px; }
+  .big-count {
+    font-size: 64px; font-weight: 600; font-family: 'DM Mono', monospace;
+    color: var(--green); line-height: 1; margin-bottom: 4px; transition: all 0.3s;
   }
-  .count-num {
-    font-size: 52px; font-weight: 600; font-family: 'DM Mono', monospace;
-    color: var(--green); line-height: 1;
-    transition: all 0.3s;
-  }
-  .count-unit { font-size: 16px; color: var(--text2); }
-  .stats-grid {
-    display: grid; grid-template-columns: 1fr 1fr;
-    gap: 8px; margin-bottom: 16px;
-  }
+  .big-unit { font-size: 14px; color: var(--text2); margin-bottom: 16px; }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
   .stat-card {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 12px;
   }
   .stat-label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
   .stat-val { font-size: 18px; font-weight: 500; color: var(--text); }
   .stat-val.green { color: var(--green); }
   .stat-val.amber { color: var(--amber); }
-
-  /* Drug name input */
-  .drug-input-row {
-    display: flex; gap: 8px; align-items: center;
-    margin-bottom: 12px;
-  }
+  .drug-row { display: flex; gap: 8px; align-items: center; }
   .drug-input {
-    flex: 1; background: var(--surface2);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    color: var(--text); font-family: 'DM Sans', sans-serif;
-    font-size: 13px; padding: 9px 12px;
+    flex: 1; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; padding: 9px 12px;
     outline: none; transition: border-color 0.2s;
   }
   .drug-input:focus { border-color: var(--green); }
   .drug-input::placeholder { color: var(--text3); }
-
-  /* Confidence slider */
-  .slider-row {
-    display: flex; align-items: center; gap: 10px;
-    margin-bottom: 4px;
+  .save-btn {
+    padding: 9px 16px; border-radius: var(--radius-sm);
+    background: var(--blue-dim); border: 1px solid var(--blue);
+    color: var(--blue); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
   }
-  .slider-label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; white-space: nowrap; }
+  .save-btn:disabled { opacity: 0.3; pointer-events: none; }
+
+  /* History */
+  .page-inner { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .section-label { font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+  .history-list { display: flex; flex-direction: column; gap: 7px; }
+  .history-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 11px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+  .history-drug { font-size: 14px; font-weight: 500; }
+  .history-meta { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .history-count { font-size: 22px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--green); }
+  .empty-state { text-align: center; font-size: 13px; color: var(--text3); padding: 24px 0; }
+  .clear-btn { font-size: 11px; color: var(--text3); background: none; border: none; cursor: pointer; font-family: 'DM Mono', monospace; }
+
+  /* Settings */
+  .settings-group { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .settings-row { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
+  .settings-row-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
+  .url-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 11px; padding: 10px 12px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .url-input:focus { border-color: var(--green); }
+  .url-input::placeholder { color: var(--text3); }
+  .save-key-btn {
+    padding: 9px 18px; border-radius: var(--radius-sm);
+    background: var(--green-dim); border: 1px solid var(--green);
+    color: var(--green); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s;
+    align-self: flex-start;
+  }
+  .save-key-btn:active { transform: scale(0.97); }
+  .url-status { font-size: 11px; font-family: 'DM Mono', monospace; }
+  .url-status.ok { color: var(--green); }
+  .url-status.none { color: var(--text3); }
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-label { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; white-space: nowrap; min-width: 36px; }
   input[type=range] {
     flex: 1; height: 4px; appearance: none;
     background: var(--border2); border-radius: 2px; outline: none;
   }
   input[type=range]::-webkit-slider-thumb {
     appearance: none; width: 16px; height: 16px;
-    border-radius: 50%; background: var(--green);
-    cursor: pointer; border: 2px solid var(--bg);
+    border-radius: 50%; background: var(--green); cursor: pointer; border: 2px solid var(--bg);
   }
-  .slider-val { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--green); min-width: 32px; text-align: right; }
+  .slider-val { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--green); min-width: 36px; text-align: right; }
+  .info-box {
+    background: var(--blue-dim); border: 1px solid rgba(88,166,255,0.2);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+    font-size: 12px; color: var(--blue); line-height: 1.6;
+  }
 
-  /* History */
-  .history-section {
-    margin: 0 20px 20px;
-  }
-  .section-title {
-    font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace;
-    text-transform: uppercase; letter-spacing: 0.5px;
-    margin-bottom: 10px;
-  }
-  .history-list { display: flex; flex-direction: column; gap: 6px; }
-  .history-item {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 10px 14px;
-    display: flex; align-items: center; justify-content: space-between;
-    animation: slideIn 0.25s ease;
-  }
-  @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-  .history-drug { font-size: 14px; font-weight: 500; }
-  .history-meta { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .history-count { font-size: 20px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--green); }
-  .empty-history { font-size: 13px; color: var(--text3); text-align: center; padding: 20px; }
-
-  /* Confidence threshold info */
-  .conf-section { padding: 0 16px 16px; }
-
-  /* Toast */
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     background: var(--surface2); border: 1px solid var(--border2);
-    color: var(--text); font-size: 13px; padding: 10px 20px;
-    border-radius: 20px; z-index: 100;
-    opacity: 0; transition: opacity 0.3s;
-    white-space: nowrap; pointer-events: none;
-    backdrop-filter: blur(12px);
+    color: var(--text); font-size: 13px; padding: 9px 18px;
+    border-radius: 20px; z-index: 100; opacity: 0; transition: opacity 0.25s;
+    white-space: nowrap; pointer-events: none; backdrop-filter: blur(12px);
   }
   .toast.show { opacity: 1; }
   .toast.success { border-color: var(--green); color: var(--green); }
   .toast.error { border-color: var(--red); color: var(--red); }
-
-  /* Divider */
-  hr { border: none; border-top: 1px solid var(--border); margin: 0 20px 16px; }
-
-  /* Save btn */
-  .save-btn {
-    width: 100%; padding: 12px;
-    background: var(--blue-dim); border: 1px solid var(--blue);
-    border-radius: var(--radius-sm); color: var(--blue);
-    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
-    cursor: pointer; transition: all 0.15s;
-  }
-  .save-btn:hover { background: rgba(88,166,255,0.18); }
-  .save-btn:active { transform: scale(0.98); }
-  .save-btn:disabled { opacity: 0.3; pointer-events: none; }
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24"><path d="M12 2C8.5 2 6 4 6 7c0 1.5.6 2.8 1.5 3.8L6 22h12l-1.5-11.2C17.4 9.8 18 8.5 18 7c0-3-2.5-5-6-5zm-2 7.5c-.8-.7-1.3-1.7-1.3-2.5 0-1.6 1.4-3 3.3-3s3.3 1.4 3.3 3c0 .8-.5 1.8-1.3 2.5H10z"/></svg>
-    </div>
+    <div class="logo-pill"></div>
     <span class="logo-text">Pill<span>Count</span></span>
   </div>
-  <div class="status-dot" id="statusDot">idle</div>
+  <div class="status-chip" id="statusChip"><div class="dot"></div><span id="statusText">idle</span></div>
 </header>
 
-<!-- Camera -->
-<div class="camera-wrap" id="cameraWrap">
-  <video id="video" autoplay playsinline muted></video>
-  <canvas id="canvas-overlay"></canvas>
-  <div class="scan-frame">
-    <div class="scan-line" id="scanLine"></div>
-    <div class="corner-tl"></div>
-    <div class="corner-tr"></div>
-    <div class="corner-bl"></div>
-    <div class="corner-br"></div>
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('count')">Count</div>
+  <div class="tab" onclick="switchTab('history')">History</div>
+  <div class="tab" onclick="switchTab('settings')">Settings</div>
+</div>
+
+<!-- ── COUNT PAGE ── -->
+<div class="page active" id="page-count">
+
+  <!-- Model loading progress -->
+  <div class="model-banner" id="modelBanner">
+    <div class="model-banner-inner">
+      <div class="model-title">Loading AI model…</div>
+      <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">Fetching from HuggingFace — <span id="progressPct">0%</span></div>
+    </div>
   </div>
-  <div class="cam-badge" id="camBadge">Camera off</div>
-  <div class="live-count-badge" id="liveCountBadge">0</div>
-  <div class="cam-placeholder" id="camPlaceholder">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
-    <p>Tap "Start Camera" to begin</p>
+
+  <div class="camera-wrap" id="cameraWrap">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="snap-canvas"></canvas>
+    <canvas id="bbox-canvas"></canvas>
+    <div class="cam-overlay">
+      <div class="scan-line" id="scanLine"></div>
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+    </div>
+    <div class="cam-hint" id="camHint">Loading model…</div>
+    <div class="cam-placeholder" id="camPlaceholder">
+      <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+      <p id="placeholderText">Loading model…</p>
+    </div>
+  </div>
+
+  <div class="preview-strip" id="previewStrip">
+    <img id="previewImg" src="" alt="">
+    <div class="close-preview" onclick="closePreview()">×</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="camBtn" onclick="toggleCamera()" disabled>Start Camera</button>
+    <button class="btn primary" id="countBtn" onclick="captureAndCount()" disabled>Capture & Count</button>
+  </div>
+
+  <div class="result-card">
+    <div class="result-header">
+      <span class="result-label">Result</span>
+      <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace" id="tsLabel">—</span>
+    </div>
+    <div class="result-body">
+      <div class="big-count" id="bigCount">—</div>
+      <div class="big-unit">units detected</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">TABLETS</div>
+          <div class="stat-val green" id="tabletCount">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">CAPSULES</div>
+          <div class="stat-val amber" id="capsuleCount">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">AVG CONF</div>
+          <div class="stat-val" id="avgConf">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">THRESHOLD</div>
+          <div class="stat-val" id="threshDisplay">50%</div>
+        </div>
+      </div>
+      <div class="drug-row">
+        <input type="text" class="drug-input" id="drugName" placeholder="Drug name (optional)">
+        <button class="save-btn" id="saveBtn" onclick="saveRecord()" disabled>Save</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── HISTORY PAGE ── -->
+<div class="page" id="page-history">
+  <div class="page-inner">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="section-label">Count history</span>
+      <button class="clear-btn" onclick="clearHistory()">CLEAR ALL</button>
+    </div>
+    <div class="history-list" id="historyList">
+      <div class="empty-state">No records saved yet</div>
+    </div>
   </div>
 </div>
 
-<!-- Controls -->
-<div class="controls">
-  <button class="btn" id="camBtn" onclick="toggleCamera()">Start Camera</button>
-  <button class="btn primary" id="captureBtn" onclick="captureAndCount()" disabled>Capture & Count</button>
-</div>
+<!-- ── SETTINGS PAGE ── -->
+<div class="page" id="page-settings">
+  <div class="page-inner">
 
-<!-- Model -->
-<div class="model-section">
-  <div class="model-header">
-    <span class="model-label">YOLOv8 Model</span>
-    <span class="model-status" id="modelStatus">not loaded</span>
-  </div>
-  <div class="model-body">
-    <div class="file-input-wrap">
-      <input type="file" id="modelFile" accept=".onnx" onchange="loadModel(this)">
-      <p>Drop your <span>.onnx</span> file here or tap to browse</p>
+    <div class="info-box">
+      The model is fetched once from HuggingFace and cached in your browser. No API costs. Works fully offline after first load.
     </div>
-    <div class="progress-bar" id="progressBar">
-      <div class="progress-fill" id="progressFill"></div>
-    </div>
-    <!-- Confidence slider -->
-    <div class="slider-row">
-      <span class="slider-label">CONF</span>
-      <input type="range" id="confSlider" min="0" max="100" value="50" step="1" oninput="updateConf(this.value)">
-      <span class="slider-val" id="confVal">50%</span>
-    </div>
-    <div class="slider-row">
-      <span class="slider-label">IOU</span>
-      <input type="range" id="iouSlider" min="0" max="100" value="45" step="1" oninput="updateIou(this.value)">
-      <span class="slider-val" id="iouVal">45%</span>
-    </div>
-  </div>
-</div>
 
-<!-- Results -->
-<div class="results">
-  <div class="results-header">
-    <span class="results-label">Result</span>
-    <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace" id="timestampLabel">—</span>
-  </div>
-  <div class="results-body">
-    <div class="count-display">
-      <span class="count-num" id="countNum">—</span>
-      <span class="count-unit">units</span>
-    </div>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">TABLETS</div>
-        <div class="stat-val green" id="tabletCount">—</div>
+    <div class="settings-group">
+
+      <div class="settings-row">
+        <span class="settings-row-label">Model URL</span>
+        <span class="settings-row-desc">Direct link to your <code style="color:var(--green);font-size:11px">.onnx</code> file on HuggingFace.</span>
+        <input type="text" class="url-input" id="modelUrlInput"
+          placeholder="https://huggingface.co/YOUR_NAME/pill-counter/resolve/main/best_model.onnx">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="save-key-btn" onclick="saveModelUrl()">Save & Reload</button>
+          <span class="url-status none" id="urlStatus">Not set</span>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">CAPSULES</div>
-        <div class="stat-val amber" id="capsuleCount">—</div>
+
+      <div class="settings-row">
+        <span class="settings-row-label">Confidence threshold</span>
+        <span class="settings-row-desc">Minimum confidence to count a detection.</span>
+        <div class="slider-row">
+          <span class="slider-label">CONF</span>
+          <input type="range" id="confSlider" min="1" max="99" value="50" step="1" oninput="updateConf(this.value)">
+          <span class="slider-val" id="confVal">50%</span>
+        </div>
+        <div class="slider-row">
+          <span class="slider-label">IOU</span>
+          <input type="range" id="iouSlider" min="1" max="99" value="45" step="1" oninput="updateIou(this.value)">
+          <span class="slider-val" id="iouVal">45%</span>
+        </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">CONFIDENCE</div>
-        <div class="stat-val" id="avgConf">—</div>
+
+      <div class="settings-row">
+        <span class="settings-row-label">Class labels</span>
+        <span class="settings-row-desc">Comma-separated class names from your model, in order (class 0, class 1…).</span>
+        <input type="text" class="url-input" id="classLabels" value="tablet,capsule" placeholder="tablet,capsule">
+        <button class="save-key-btn" onclick="saveLabels()">Save labels</button>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">DETECTIONS</div>
-        <div class="stat-val" id="detCount">—</div>
-      </div>
+
     </div>
-
-    <div class="drug-input-row">
-      <input type="text" class="drug-input" id="drugName" placeholder="Drug name (optional)">
-    </div>
-    <button class="save-btn" id="saveBtn" onclick="saveToHistory()" disabled>Save to history</button>
-  </div>
-</div>
-
-<hr>
-
-<!-- History -->
-<div class="history-section">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-    <div class="section-title">History</div>
-    <button onclick="clearHistory()" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:'DM Mono',monospace;">CLEAR</button>
-  </div>
-  <div class="history-list" id="historyList">
-    <div class="empty-history">No counts saved yet</div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<!-- ONNX Runtime Web -->
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
-
 <script>
-// ─── State ───────────────────────────────────────────────────────────────────
+// ── Config ────────────────────────────────────────────────────────────────
+// !! Replace this URL with your own HuggingFace URL after uploading !!
+const DEFAULT_MODEL_URL = 'https://huggingface.co/DiamondLiao/pillcount/resolve/main/best_model.onnx';
+const INPUT_SIZE = 640;
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+
+// ── State ─────────────────────────────────────────────────────────────────
 let session = null;
 let stream = null;
 let cameraOn = false;
 let lastResult = null;
 let confThreshold = 0.50;
 let iouThreshold = 0.45;
-let history = JSON.parse(localStorage.getItem('pillHistory') || '[]');
-const INPUT_SIZE = 640;
+let classLabels = ['tablet', 'capsule'];
+let history = JSON.parse(localStorage.getItem('ph_history') || '[]');
 
-// ─── ORT config ──────────────────────────────────────────────────────────────
-ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+// ── Init ──────────────────────────────────────────────────────────────────
+(async function init() {
+  // Load saved settings
+  const savedUrl = localStorage.getItem('ph_model_url');
+  const savedLabels = localStorage.getItem('ph_labels');
+  const savedConf = localStorage.getItem('ph_conf');
+  const savedIou = localStorage.getItem('ph_iou');
 
-// ─── UI helpers ──────────────────────────────────────────────────────────────
-function setStatus(text, type) {
-  const el = document.getElementById('statusDot');
-  el.textContent = text;
-  el.className = 'status-dot' + (type ? ' ' + type : '');
-}
+  if (savedUrl) document.getElementById('modelUrlInput').value = savedUrl;
+  if (savedLabels) {
+    classLabels = savedLabels.split(',').map(s => s.trim());
+    document.getElementById('classLabels').value = savedLabels;
+  }
+  if (savedConf) {
+    confThreshold = parseFloat(savedConf);
+    const pct = Math.round(confThreshold * 100);
+    document.getElementById('confSlider').value = pct;
+    document.getElementById('confVal').textContent = pct + '%';
+    document.getElementById('threshDisplay').textContent = pct + '%';
+  }
+  if (savedIou) {
+    iouThreshold = parseFloat(savedIou);
+    document.getElementById('iouSlider').value = Math.round(iouThreshold * 100);
+    document.getElementById('iouVal').textContent = Math.round(iouThreshold * 100) + '%';
+  }
 
-function showToast(msg, type = '') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show' + (type ? ' ' + type : '');
-  setTimeout(() => t.className = 'toast', 2400);
-}
+  renderHistory();
 
-function updateConf(v) {
-  confThreshold = v / 100;
-  document.getElementById('confVal').textContent = v + '%';
-}
-function updateIou(v) {
-  iouThreshold = v / 100;
-  document.getElementById('iouVal').textContent = v + '%';
-}
+  const modelUrl = savedUrl || DEFAULT_MODEL_URL;
+  if (modelUrl.includes('YOUR_USERNAME')) {
+    // No URL set yet
+    document.getElementById('modelBanner').style.display = 'none';
+    document.getElementById('placeholderText').textContent = 'Set model URL in Settings';
+    document.getElementById('camHint').textContent = 'No model URL set';
+    document.getElementById('urlStatus').textContent = 'Not set';
+    document.getElementById('urlStatus').className = 'url-status none';
+    setStatus('idle', '');
+    return;
+  }
 
-// ─── Model loading ────────────────────────────────────────────────────────────
-async function loadModel(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const statusEl = document.getElementById('modelStatus');
-  const progressBar = document.getElementById('progressBar');
-  const progressFill = document.getElementById('progressFill');
+  await loadModel(modelUrl);
+})();
 
-  statusEl.textContent = 'loading…';
-  statusEl.className = 'model-status';
-  progressBar.style.display = 'block';
-  progressFill.style.width = '20%';
+// ── Model loading ─────────────────────────────────────────────────────────
+async function loadModel(url) {
+  setStatus('loading', 'loading');
+  document.getElementById('modelBanner').style.display = 'block';
+  document.getElementById('progressLabel').innerHTML = 'Fetching from HuggingFace — <span id="progressPct">0%</span>';
 
   try {
-    const buffer = await file.arrayBuffer();
-    progressFill.style.width = '60%';
-    session = await ort.InferenceSession.create(buffer, {
+    // Fetch with progress
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+
+    const contentLength = response.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength) : null;
+    const reader = response.body.getReader();
+    const chunks = [];
+    let received = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.length;
+      const pct = total ? Math.round((received / total) * 80) : null;
+      if (pct !== null) {
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressPct').textContent = pct + '%';
+      }
+    }
+
+    document.getElementById('progressFill').style.width = '85%';
+    document.getElementById('progressLabel').innerHTML = 'Initializing model… <span id="progressPct">85%</span>';
+
+    const buffer = new Uint8Array(received);
+    let pos = 0;
+    for (const chunk of chunks) { buffer.set(chunk, pos); pos += chunk.length; }
+
+    session = await ort.InferenceSession.create(buffer.buffer, {
       executionProviders: ['wasm'],
       graphOptimizationLevel: 'all',
     });
-    progressFill.style.width = '100%';
-    setTimeout(() => progressBar.style.display = 'none', 600);
-    statusEl.textContent = '✓ ' + file.name;
-    statusEl.className = 'model-status loaded';
+
+    document.getElementById('progressFill').style.width = '100%';
+    document.getElementById('progressPct').textContent = '100%';
+
+    setTimeout(() => {
+      document.getElementById('modelBanner').style.display = 'none';
+    }, 800);
+
+    document.getElementById('camBtn').disabled = false;
+    document.getElementById('camHint').textContent = 'Tap "Start Camera" to begin';
+    document.getElementById('placeholderText').textContent = 'Tap "Start Camera" to begin';
+    document.getElementById('urlStatus').textContent = '✓ Model loaded';
+    document.getElementById('urlStatus').className = 'url-status ok';
     setStatus('ready', 'ready');
-    showToast('Model loaded successfully', 'success');
-    document.getElementById('captureBtn').disabled = !cameraOn;
-  } catch (e) {
-    statusEl.textContent = '✗ Failed to load';
-    statusEl.className = 'model-status error';
-    progressBar.style.display = 'none';
-    showToast('Model load failed: ' + e.message, 'error');
+    toast('Model ready!', 'success');
+
+  } catch(e) {
+    document.getElementById('modelBanner').style.display = 'none';
+    document.getElementById('placeholderText').textContent = 'Model load failed — check Settings';
+    setStatus('error', 'error');
+    toast('Model load failed: ' + e.message, 'error');
     console.error(e);
   }
 }
 
-// ─── Camera ──────────────────────────────────────────────────────────────────
+// ── UI helpers ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['count','history','settings'][i] === name);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+}
+function setStatus(text, type) {
+  const chip = document.getElementById('statusChip');
+  chip.className = 'status-chip' + (type ? ' ' + type : '');
+  document.getElementById('statusText').textContent = text;
+}
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => el.className = 'toast', 2600);
+}
+function updateConf(v) {
+  confThreshold = v / 100;
+  document.getElementById('confVal').textContent = v + '%';
+  document.getElementById('threshDisplay').textContent = v + '%';
+  localStorage.setItem('ph_conf', confThreshold);
+}
+function updateIou(v) {
+  iouThreshold = v / 100;
+  document.getElementById('iouVal').textContent = v + '%';
+  localStorage.setItem('ph_iou', iouThreshold);
+}
+
+// ── Camera ────────────────────────────────────────────────────────────────
 async function toggleCamera() {
-  const btn = document.getElementById('camBtn');
   if (!cameraOn) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
       });
-      const video = document.getElementById('video');
-      video.srcObject = stream;
+      document.getElementById('video').srcObject = stream;
       document.getElementById('camPlaceholder').style.display = 'none';
-      document.getElementById('camBadge').textContent = 'LIVE';
+      document.getElementById('camHint').textContent = 'LIVE — place pills in frame';
       cameraOn = true;
-      btn.textContent = 'Stop Camera';
-      btn.classList.add('danger');
-      if (session) document.getElementById('captureBtn').disabled = false;
-    } catch (e) {
-      showToast('Camera access denied', 'error');
-    }
+      document.getElementById('camBtn').textContent = 'Stop Camera';
+      document.getElementById('camBtn').classList.add('danger');
+      if (session) document.getElementById('countBtn').disabled = false;
+      setStatus('ready', 'ready');
+    } catch(e) { toast('Camera access denied', 'error'); }
   } else {
     stream.getTracks().forEach(t => t.stop());
-    const video = document.getElementById('video');
-    video.srcObject = null;
+    document.getElementById('video').srcObject = null;
     document.getElementById('camPlaceholder').style.display = 'flex';
-    document.getElementById('camBadge').textContent = 'Camera off';
-    clearOverlay();
+    document.getElementById('camHint').textContent = 'Camera off';
+    document.getElementById('previewStrip').style.display = 'none';
+    clearBboxCanvas();
     cameraOn = false;
-    btn.textContent = 'Start Camera';
-    btn.classList.remove('danger');
-    document.getElementById('captureBtn').disabled = true;
-    document.getElementById('liveCountBadge').style.display = 'none';
-    document.getElementById('scanLine').classList.remove('active');
-    setStatus('idle', '');
+    document.getElementById('camBtn').textContent = 'Start Camera';
+    document.getElementById('camBtn').classList.remove('danger');
+    document.getElementById('countBtn').disabled = true;
+    setStatus('ready', 'ready');
   }
 }
+function closePreview() { document.getElementById('previewStrip').style.display = 'none'; }
 
-// ─── Inference ───────────────────────────────────────────────────────────────
+// ── Inference ─────────────────────────────────────────────────────────────
 async function captureAndCount() {
   if (!session || !cameraOn) return;
 
   setStatus('scanning', 'scanning');
   document.getElementById('scanLine').classList.add('active');
-  document.getElementById('captureBtn').disabled = true;
+  document.getElementById('countBtn').disabled = true;
+  document.getElementById('bigCount').textContent = '…';
+  document.getElementById('saveBtn').disabled = true;
+  clearBboxCanvas();
 
   try {
     const video = document.getElementById('video');
-    const offscreen = document.createElement('canvas');
-    offscreen.width = INPUT_SIZE; offscreen.height = INPUT_SIZE;
-    const ctx = offscreen.getContext('2d');
+    const canvas = document.getElementById('snap-canvas');
+    canvas.width = INPUT_SIZE; canvas.height = INPUT_SIZE;
+    const ctx = canvas.getContext('2d');
 
-    // Letterbox
+    // Letterbox to 640×640
     const vw = video.videoWidth, vh = video.videoHeight;
     const scale = Math.min(INPUT_SIZE / vw, INPUT_SIZE / vh);
     const sw = vw * scale, sh = vh * scale;
@@ -616,213 +651,183 @@ async function captureAndCount() {
     ctx.fillRect(0, 0, INPUT_SIZE, INPUT_SIZE);
     ctx.drawImage(video, ox, oy, sw, sh);
 
-    // To float32 tensor [1, 3, 640, 640]
-    const imgData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE);
-    const data = imgData.data;
-    const tensor = new Float32Array(1 * 3 * INPUT_SIZE * INPUT_SIZE);
+    // Preview
+    document.getElementById('previewImg').src = canvas.toDataURL('image/jpeg', 0.8);
+    document.getElementById('previewStrip').style.display = 'block';
+
+    // Build tensor
+    const imgData = ctx.getImageData(0, 0, INPUT_SIZE, INPUT_SIZE).data;
+    const tensor = new Float32Array(3 * INPUT_SIZE * INPUT_SIZE);
     for (let i = 0; i < INPUT_SIZE * INPUT_SIZE; i++) {
-      tensor[i] = data[i * 4] / 255;                          // R
-      tensor[INPUT_SIZE * INPUT_SIZE + i] = data[i * 4 + 1] / 255;    // G
-      tensor[2 * INPUT_SIZE * INPUT_SIZE + i] = data[i * 4 + 2] / 255; // B
+      tensor[i]                          = imgData[i * 4]     / 255;
+      tensor[INPUT_SIZE * INPUT_SIZE + i]     = imgData[i * 4 + 1] / 255;
+      tensor[2 * INPUT_SIZE * INPUT_SIZE + i] = imgData[i * 4 + 2] / 255;
     }
 
     const inputName = session.inputNames[0];
     const feed = {};
     feed[inputName] = new ort.Tensor('float32', tensor, [1, 3, INPUT_SIZE, INPUT_SIZE]);
-
     const results = await session.run(feed);
-    const outputName = session.outputNames[0];
-    const output = results[outputName].data;
-    const outputShape = results[outputName].dims;
+    const out = results[session.outputNames[0]];
 
-    // Parse YOLOv8 output [1, num_classes+4, num_boxes] or [1, num_boxes, num_classes+4]
-    const detections = parseYoloOutput(output, outputShape);
-    const filtered = nms(detections);
+    const detections = parseOutput(out.data, out.dims);
+    const kept = nms(detections);
 
-    // Draw overlays on real video frame size
-    drawOverlay(filtered, video, ox, oy, scale);
-
-    // Count by class (adapt class indices to your model)
-    let tablets = 0, capsules = 0;
-    filtered.forEach(d => {
-      if (d.cls === 0) tablets++;
-      else capsules++;
+    // Count by class
+    const counts = {};
+    classLabels.forEach(l => counts[l] = 0);
+    kept.forEach(d => {
+      const label = classLabels[d.cls] || ('class' + d.cls);
+      counts[label] = (counts[label] || 0) + 1;
     });
-    const total = filtered.length;
-    const avgConf = total > 0 ? (filtered.reduce((s, d) => s + d.conf, 0) / total) : 0;
+
+    const total = kept.length;
+    const avgConf = total > 0 ? kept.reduce((s, d) => s + d.conf, 0) / total : 0;
+
+    // Draw boxes
+    drawBoxes(kept, video);
 
     // Update UI
-    document.getElementById('countNum').textContent = total;
-    document.getElementById('tabletCount').textContent = tablets;
-    document.getElementById('capsuleCount').textContent = capsules;
-    document.getElementById('avgConf').textContent = (avgConf * 100).toFixed(1) + '%';
-    document.getElementById('detCount').textContent = total;
-    document.getElementById('liveCountBadge').textContent = total;
-    document.getElementById('liveCountBadge').style.display = 'block';
-    document.getElementById('timestampLabel').textContent = new Date().toLocaleTimeString();
+    document.getElementById('bigCount').textContent = total;
+    document.getElementById('tabletCount').textContent = counts['tablet'] ?? counts[classLabels[0]] ?? '—';
+    document.getElementById('capsuleCount').textContent = counts['capsule'] ?? counts[classLabels[1]] ?? '—';
+    document.getElementById('avgConf').textContent = total ? (avgConf * 100).toFixed(1) + '%' : '—';
+    document.getElementById('tsLabel').textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
     document.getElementById('saveBtn').disabled = false;
-
-    lastResult = { total, tablets, capsules, avgConf, timestamp: new Date().toISOString() };
+    lastResult = { total, counts, avgConf, timestamp: new Date().toISOString() };
 
     setStatus('ready', 'ready');
-    showToast(total + ' unit' + (total !== 1 ? 's' : '') + ' detected', 'success');
+    toast(total + ' unit' + (total !== 1 ? 's' : '') + ' detected', 'success');
 
-  } catch (e) {
+  } catch(e) {
+    document.getElementById('bigCount').textContent = '—';
+    setStatus('error', 'error');
+    toast('Inference error: ' + e.message, 'error');
     console.error(e);
-    showToast('Inference error: ' + e.message, 'error');
-    setStatus('ready', 'ready');
   }
 
   document.getElementById('scanLine').classList.remove('active');
-  document.getElementById('captureBtn').disabled = false;
+  document.getElementById('countBtn').disabled = false;
 }
 
-// ─── YOLOv8 output parser ─────────────────────────────────────────────────────
-function parseYoloOutput(data, shape) {
-  const detections = [];
-  // YOLOv8 default export: [1, 4+nc, 8400]
-  let numBoxes, stride;
-  if (shape[1] < shape[2]) {
-    // [1, 4+nc, num_boxes]
-    numBoxes = shape[2];
-    stride = shape[1];
-    for (let i = 0; i < numBoxes; i++) {
-      const cx = data[0 * numBoxes + i];
-      const cy = data[1 * numBoxes + i];
-      const w  = data[2 * numBoxes + i];
-      const h  = data[3 * numBoxes + i];
-      let maxConf = 0, cls = 0;
+// ── YOLO output parser ────────────────────────────────────────────────────
+function parseOutput(data, shape) {
+  const dets = [];
+  // Support both [1, 4+nc, boxes] and [1, boxes, 4+nc]
+  const transposed = shape[1] < shape[2];
+  const numBoxes = transposed ? shape[2] : shape[1];
+  const stride   = transposed ? shape[1] : shape[2];
+
+  for (let i = 0; i < numBoxes; i++) {
+    let cx, cy, w, h, maxConf = 0, cls = 0;
+    if (transposed) {
+      cx = data[0 * numBoxes + i]; cy = data[1 * numBoxes + i];
+      w  = data[2 * numBoxes + i]; h  = data[3 * numBoxes + i];
       for (let c = 4; c < stride; c++) {
         const v = data[c * numBoxes + i];
         if (v > maxConf) { maxConf = v; cls = c - 4; }
       }
-      if (maxConf >= confThreshold) {
-        detections.push({ cx, cy, w, h, conf: maxConf, cls });
-      }
-    }
-  } else {
-    // [1, num_boxes, 4+nc]
-    numBoxes = shape[1];
-    stride = shape[2];
-    for (let i = 0; i < numBoxes; i++) {
-      const base = i * stride;
-      const cx = data[base];
-      const cy = data[base + 1];
-      const w  = data[base + 2];
-      const h  = data[base + 3];
-      let maxConf = 0, cls = 0;
+    } else {
+      const b = i * stride;
+      cx = data[b]; cy = data[b+1]; w = data[b+2]; h = data[b+3];
       for (let c = 4; c < stride; c++) {
-        const v = data[base + c];
+        const v = data[b + c];
         if (v > maxConf) { maxConf = v; cls = c - 4; }
       }
-      if (maxConf >= confThreshold) {
-        detections.push({ cx, cy, w, h, conf: maxConf, cls });
-      }
     }
+    if (maxConf >= confThreshold) dets.push({ cx, cy, w, h, conf: maxConf, cls });
   }
-  return detections;
+  return dets;
 }
 
-// ─── NMS ─────────────────────────────────────────────────────────────────────
+// ── NMS ───────────────────────────────────────────────────────────────────
 function iou(a, b) {
-  const ax1 = a.cx - a.w / 2, ay1 = a.cy - a.h / 2, ax2 = a.cx + a.w / 2, ay2 = a.cy + a.h / 2;
-  const bx1 = b.cx - b.w / 2, by1 = b.cy - b.h / 2, bx2 = b.cx + b.w / 2, by2 = b.cy + b.h / 2;
-  const ix1 = Math.max(ax1, bx1), iy1 = Math.max(ay1, by1);
-  const ix2 = Math.min(ax2, bx2), iy2 = Math.min(ay2, by2);
-  const inter = Math.max(0, ix2 - ix1) * Math.max(0, iy2 - iy1);
-  return inter / (a.w * a.h + b.w * b.h - inter);
+  const ax1=a.cx-a.w/2,ay1=a.cy-a.h/2,ax2=a.cx+a.w/2,ay2=a.cy+a.h/2;
+  const bx1=b.cx-b.w/2,by1=b.cy-b.h/2,bx2=b.cx+b.w/2,by2=b.cy+b.h/2;
+  const ix=Math.max(0,Math.min(ax2,bx2)-Math.max(ax1,bx1));
+  const iy=Math.max(0,Math.min(ay2,by2)-Math.max(ay1,by1));
+  const inter=ix*iy;
+  return inter/(a.w*a.h+b.w*b.h-inter);
 }
 function nms(dets) {
-  dets.sort((a, b) => b.conf - a.conf);
-  const keep = [];
-  const suppressed = new Set();
-  for (let i = 0; i < dets.length; i++) {
-    if (suppressed.has(i)) continue;
-    keep.push(dets[i]);
-    for (let j = i + 1; j < dets.length; j++) {
-      if (!suppressed.has(j) && iou(dets[i], dets[j]) > iouThreshold) suppressed.add(j);
+  dets.sort((a,b)=>b.conf-a.conf);
+  const keep=[]; const sup=new Set();
+  for(let i=0;i<dets.length;i++){
+    if(sup.has(i))continue; keep.push(dets[i]);
+    for(let j=i+1;j<dets.length;j++){
+      if(!sup.has(j)&&iou(dets[i],dets[j])>iouThreshold)sup.add(j);
     }
   }
   return keep;
 }
 
-// ─── Draw overlay ────────────────────────────────────────────────────────────
-function drawOverlay(dets, video, ox, oy, scale) {
-  const canvas = document.getElementById('canvas-overlay');
+// ── Bounding box overlay ──────────────────────────────────────────────────
+const COLORS = ['#3fb950','#d29922','#58a6ff','#f85149','#bc8cff'];
+function drawBoxes(dets, video) {
+  const canvas = document.getElementById('bbox-canvas');
   const wrap = document.getElementById('cameraWrap');
   canvas.width = wrap.offsetWidth;
   canvas.height = wrap.offsetHeight;
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const scaleX = canvas.width / INPUT_SIZE;
-  const scaleY = canvas.height / INPUT_SIZE;
-
+  const sx = canvas.width / INPUT_SIZE, sy = canvas.height / INPUT_SIZE;
   dets.forEach(d => {
-    const x1 = (d.cx - d.w / 2) * scaleX;
-    const y1 = (d.cy - d.h / 2) * scaleY;
-    const bw = d.w * scaleX;
-    const bh = d.h * scaleY;
-
-    const color = d.cls === 0 ? '#3fb950' : '#d29922';
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x1, y1, bw, bh);
-
-    ctx.fillStyle = color + 'cc';
-    ctx.fillRect(x1, y1 - 18, bw, 18);
-    ctx.fillStyle = '#000';
-    ctx.font = '500 11px DM Mono, monospace';
-    ctx.fillText((d.cls === 0 ? 'tablet' : 'capsule') + ' ' + (d.conf * 100).toFixed(0) + '%', x1 + 4, y1 - 5);
+    const x1=(d.cx-d.w/2)*sx, y1=(d.cy-d.h/2)*sy;
+    const bw=d.w*sx, bh=d.h*sy;
+    const color = COLORS[d.cls % COLORS.length];
+    const label = (classLabels[d.cls] || 'cls'+d.cls) + ' ' + (d.conf*100).toFixed(0)+'%';
+    ctx.strokeStyle=color; ctx.lineWidth=2; ctx.strokeRect(x1,y1,bw,bh);
+    ctx.fillStyle=color+'cc'; ctx.fillRect(x1,y1-18,Math.min(bw,100),18);
+    ctx.fillStyle='#000'; ctx.font='500 11px DM Mono,monospace';
+    ctx.fillText(label, x1+4, y1-5);
   });
 }
-
-function clearOverlay() {
-  const canvas = document.getElementById('canvas-overlay');
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function clearBboxCanvas() {
+  const c = document.getElementById('bbox-canvas');
+  c.getContext('2d').clearRect(0,0,c.width,c.height);
 }
 
-// ─── History ─────────────────────────────────────────────────────────────────
-function saveToHistory() {
+// ── History ───────────────────────────────────────────────────────────────
+function saveRecord() {
   if (!lastResult) return;
-  const drug = document.getElementById('drugName').value.trim() || 'Unknown drug';
-  const entry = { ...lastResult, drug };
-  history.unshift(entry);
-  if (history.length > 50) history.pop();
-  localStorage.setItem('pillHistory', JSON.stringify(history));
+  const drug = document.getElementById('drugName').value.trim() || 'Unnamed drug';
+  history.unshift({ drug, ...lastResult });
+  if (history.length > 100) history.pop();
+  localStorage.setItem('ph_history', JSON.stringify(history));
   renderHistory();
-  showToast('Saved: ' + drug + ' — ' + lastResult.total + ' units', 'success');
   document.getElementById('saveBtn').disabled = true;
+  toast('Saved — ' + drug + ' · ' + lastResult.total + ' units', 'success');
 }
-
 function clearHistory() {
-  history = [];
-  localStorage.removeItem('pillHistory');
-  renderHistory();
+  history = []; localStorage.removeItem('ph_history'); renderHistory();
 }
-
 function renderHistory() {
   const list = document.getElementById('historyList');
-  if (history.length === 0) {
-    list.innerHTML = '<div class="empty-history">No counts saved yet</div>';
-    return;
-  }
-  list.innerHTML = history.slice(0, 10).map(h => {
+  if (!history.length) { list.innerHTML = '<div class="empty-state">No records saved yet</div>'; return; }
+  list.innerHTML = history.slice(0, 30).map(h => {
     const d = new Date(h.timestamp);
-    const label = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const label = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
     return `<div class="history-item">
-      <div>
-        <div class="history-drug">${h.drug}</div>
-        <div class="history-meta">${label} &middot; ${(h.avgConf * 100).toFixed(0)}% conf</div>
-      </div>
+      <div><div class="history-drug">${h.drug}</div><div class="history-meta">${label}</div></div>
       <div class="history-count">${h.total}</div>
     </div>`;
   }).join('');
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
-renderHistory();
+// ── Settings ──────────────────────────────────────────────────────────────
+function saveModelUrl() {
+  const url = document.getElementById('modelUrlInput').value.trim();
+  if (!url.startsWith('http')) { toast('Enter a valid URL', 'error'); return; }
+  localStorage.setItem('ph_model_url', url);
+  toast('Saved — reloading model…', 'success');
+  setTimeout(() => { session = null; loadModel(url); }, 500);
+}
+function saveLabels() {
+  const val = document.getElementById('classLabels').value.trim();
+  classLabels = val.split(',').map(s => s.trim());
+  localStorage.setItem('ph_labels', val);
+  toast('Labels saved: ' + classLabels.join(', '), 'success');
+}
 </script>
 </body>
 </html>
