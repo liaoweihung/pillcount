@@ -459,8 +459,11 @@ async function captureAndCount() {
     for (let i=0;i<INPUT_SIZE*INPUT_SIZE;i++) {
       t[i]=px[i*4]/255; t[INPUT_SIZE*INPUT_SIZE+i]=px[i*4+1]/255; t[2*INPUT_SIZE*INPUT_SIZE+i]=px[i*4+2]/255;
     }
-    const feed = {}; feed[session.inputNames[0]] = new ort.Tensor('float32',t,[1,3,INPUT_SIZE,INPUT_SIZE]);
-    const out = (await session.run(feed))[session.outputNames[0]];
+    // Model requires batch=8; fill slot 0 with our image, rest zeros
+    const batch = new Float32Array(8 * 3 * INPUT_SIZE * INPUT_SIZE);
+    batch.set(t, 0);
+    const feed = { 'images': new ort.Tensor('float32', batch, [8, 3, INPUT_SIZE, INPUT_SIZE]) };
+    const out = (await session.run(feed))['output0'];
     const dets = nms(parse(out.data, out.dims));
 
     const total = dets.length;
@@ -487,12 +490,16 @@ async function captureAndCount() {
 
 // ── Parser + NMS ──────────────────────────────────────────────────────────
 function parse(data, shape) {
-  const dets=[]; const tr=shape[1]<shape[2];
-  const nb=tr?shape[2]:shape[1], st=tr?shape[1]:shape[2];
+  const dets=[];
+  // Output shape: [8, 6, 8400] — take first batch only
+  // First batch starts at index 0, size = 6*8400
+  const batchSize = shape[1] * shape[2]; // 6 * 8400
+  const nb = shape[2]; // 8400 boxes
+  const st = shape[1]; // 6 = 4 coords + 2 classes
   for(let i=0;i<nb;i++){
-    let cx,cy,w,h,mc=0,cls=0;
-    if(tr){cx=data[i];cy=data[nb+i];w=data[2*nb+i];h=data[3*nb+i];for(let c=4;c<st;c++){const v=data[c*nb+i];if(v>mc){mc=v;cls=c-4;}}}
-    else{const b=i*st;cx=data[b];cy=data[b+1];w=data[b+2];h=data[b+3];for(let c=4;c<st;c++){const v=data[b+c];if(v>mc){mc=v;cls=c-4;}}}
+    const cx=data[i], cy=data[nb+i], w=data[2*nb+i], h=data[3*nb+i];
+    let mc=0, cls=0;
+    for(let c=4;c<st;c++){const v=data[c*nb+i];if(v>mc){mc=v;cls=c-4;}}
     if(mc>=CONF_THRESHOLD)dets.push({cx,cy,w,h,conf:mc,cls});
   }
   return dets;
