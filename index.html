@@ -91,6 +91,7 @@
   }
   .scan-line.active { opacity: 0.9; animation: sweep 1.8s ease-in-out infinite; }
   @keyframes sweep { 0%{top:4px} 100%{top:calc(100% - 4px)} }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 
   /* ── Bbox canvas ── */
   #bbox-canvas {
@@ -383,9 +384,17 @@ let history = JSON.parse(localStorage.getItem('pc_history') || '[]');
 async function startCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
     });
-    document.getElementById('video').srcObject = stream;
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      try {
+        const track = stream.getVideoTracks()[0];
+        const caps = track.getCapabilities();
+        if (caps && caps.zoom) track.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] });
+      } catch(e) {}
+    };
   } catch(e) {
     toast('Camera access denied', 'error');
   }
@@ -436,11 +445,15 @@ async function loadModel() {
 async function captureAndCount() {
   if (!session) return;
   const btn = document.getElementById('scanBtn');
+  // Immediate feedback — flash button and show spinner right away
   btn.disabled = true; btn.classList.remove('ready');
+  btn.style.background = '#d29922';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px;height:28px;fill:#fff;animation:spin 0.8s linear infinite"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg>';
+  document.getElementById('hintText').textContent = '計算中… Counting…';
   document.getElementById('scanLine').classList.add('active');
-  document.getElementById('hintText').textContent = 'Counting…';
   setChip('loading', 'counting');
   clearBbox();
+  await new Promise(r => setTimeout(r, 50)); // let UI repaint
 
   try {
     const video = document.getElementById('video');
@@ -485,6 +498,8 @@ async function captureAndCount() {
 
   document.getElementById('scanLine').classList.remove('active');
   btn.disabled = false; btn.classList.add('ready');
+  btn.style.background = 'var(--green)';
+  btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M23 5h-6v6h6V5zm-6 8h1.5v1.5H17V13zm1.5 1.5H20V16h-1.5v-1.5zM20 13h1.5v1.5H20V13zm-3 3h1.5v1.5H17V16zm1.5 1.5H20V19h-1.5v-1.5zM20 16h1.5v1.5H20V16zm1.5 1.5H23V19h-1.5v-1.5zM23 13h-1.5v1.5H23V13zm0 4.5h-1.5V19H23v-1.5z"/></svg>';
   document.getElementById('hintText').textContent = 'Point at pills and tap';
 }
 
