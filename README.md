@@ -1,45 +1,53 @@
-# PillCount — Pharmacy Pill Counter
+# PillCount 藥局手機數藥
 
-A browser-based pill & capsule counter powered by YOLOv8 + ONNX Runtime Web.  
-No installation. Works on any phone via a shared link.
+PillCount 是一個可以部署在 GitHub Pages 的手機網頁。藥局人員用手機相機拍攝數藥盤，網頁會在本機瀏覽器內用 OpenCV.js 偵測藥錠與膠囊候選物，顯示數量並允許人工加減確認。
 
-## How to deploy on GitHub Pages
+> 注意：這是輔助計數工具，不應取代藥師或工作人員的最終覆核。
 
-1. Create a new GitHub repository (e.g. `pillcount`)
-2. Upload `index.html` to the root of the repo
-3. Also upload your `model.onnx` file to the root (or a `/models/` folder)
-4. Go to **Settings → Pages → Source → main branch / root**
-5. GitHub gives you a URL like `https://yourusername.github.io/pillcount`
-6. Share that URL with your colleagues — done!
+## 功能
 
-## How to use
+- 手機後鏡頭取景與拍照計數
+- 圓形錠劑與膠囊/橢圓輪廓偵測
+- 拍攝後可點畫面新增或移除標記
+- 可用 + / - 快速修正總數
+- 可調整敏感度、藥錠大小、重複標記合併距離
+- 本機儲存計數紀錄
+- 匯出 CSV
+- 無後端，適合 GitHub Pages
 
-1. Open the URL on any phone (Chrome on Android, Safari on iPhone)
-2. Tap the model file upload area and select your `.onnx` model
-3. Tap **Start Camera** — allow camera permission
-4. Point the camera at the pills on a counting tray
-5. Tap **Capture & Count**
-6. Bounding boxes appear on detected units
-7. Optionally enter the drug name and tap **Save to history**
+## 部署到 GitHub Pages
 
-## Adjustable settings
+1. 將 `index.html` 放在 repo 根目錄。
+2. 到 GitHub repo 的 **Settings -> Pages**。
+3. Source 選擇 `main` branch / root。
+4. 開啟 GitHub 提供的網址，例如 `https://liaoweihung.github.io/pillcount/`。
 
-| Setting | Description |
-|---|---|
-| CONF threshold | Minimum confidence to count a detection (default 50%) |
-| IOU threshold | Overlap threshold for NMS deduplication (default 45%) |
+手機相機需要 HTTPS，GitHub Pages 預設符合需求。
 
-## Model requirements
+## 使用方式
 
-- Format: YOLOv8 nano exported to `.onnx`
-- Input: `[1, 3, 640, 640]` float32
-- Output: `[1, 4+nc, 8400]` or `[1, 8400, 4+nc]`
-- Class 0 = tablet, Class 1 = capsule (adjust in code if different)
+1. 用手機瀏覽器開啟網站。
+2. 點 **開啟相機**，允許相機權限。
+3. 將藥錠分散在數藥盤上，盡量避免重疊。
+4. 讓藥錠落在畫面中央方框內，點拍照。
+5. 檢查每個標記：
+   - 點已標記的藥錠可移除。
+   - 點未標記的藥錠可新增。
+   - 也可用 + / - 修正總數。
+6. 輸入藥名或處方代號後儲存紀錄。
 
-## Export your model to ONNX
+## 偵測建議
 
-```python
-from ultralytics import YOLO
-model = YOLO('your_model.pt')
-model.export(format='onnx', imgsz=640, opset=12)
-```
+- 使用均勻光線，減少數藥盤反光。
+- 藥錠不要相互接觸，密集時會較難分辨。
+- 淺色藥錠可搭配深色數藥盤，深色藥錠可搭配淺色數藥盤。
+- 如果漏算，調高敏感度或調低最小藥錠。
+- 如果多算，調低敏感度或調高最小藥錠。
+
+## 技術
+
+- 單一靜態 `index.html`
+- Camera API (`getUserMedia`)
+- OpenCV.js
+- `localStorage` 本機紀錄
+

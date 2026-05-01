@@ -1,632 +1,1040 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>PillCount</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>PillCount 藥錠計數</title>
+  <style>
+    :root {
+      --bg: #08120f;
+      --panel: #101917;
+      --panel-2: #16211f;
+      --line: rgba(255,255,255,.12);
+      --text: #eef7f2;
+      --muted: #9fb0a9;
+      --soft: #c9d8d1;
+      --green: #42d17d;
+      --green-2: #1f8f57;
+      --amber: #f3b748;
+      --red: #ff6b63;
+      --blue: #7fb7ff;
+      color-scheme: dark;
+    }
 
-  :root {
-    --green: #3fb950;
-    --green-dim: rgba(63,185,80,0.15);
-    --green-glow: rgba(63,185,80,0.3);
-    --amber: #d29922;
-    --red: #f85149;
-    --text: #e6edf3;
-    --text2: #8b949e;
-    --text3: #3d444d;
-    --border: rgba(255,255,255,0.1);
-  }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: #050706;
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow: hidden;
+    }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    button, input, textarea {
+      font: inherit;
+    }
 
-  body {
-    background: #000;
-    font-family: 'DM Sans', sans-serif;
-    height: 100dvh; overflow: hidden;
-    display: flex; flex-direction: column;
-    max-width: 480px; margin: 0 auto;
-    position: relative;
-  }
+    button {
+      border: 0;
+      color: inherit;
+      touch-action: manipulation;
+    }
 
-  #video {
-    position: fixed; inset: 0;
-    width: 100%; height: 100%;
-    object-fit: cover; z-index: 0;
-  }
+    .app {
+      position: relative;
+      width: min(100vw, 520px);
+      height: 100dvh;
+      margin: 0 auto;
+      overflow: hidden;
+      background: var(--bg);
+    }
 
-  /* Top bar */
-  .topbar {
-    position: fixed; top: 0; left: 50%; transform: translateX(-50%);
-    width: 100%; max-width: 480px;
-    padding: 14px 18px;
-    display: flex; align-items: center; justify-content: space-between;
-    z-index: 10;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent);
-  }
-  .app-name { font-size: 16px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
-  .app-name span { color: var(--green); }
-  .chip {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 11px; font-family: 'DM Mono', monospace;
-    color: var(--text2); padding: 4px 10px;
-    background: rgba(0,0,0,0.55); border: 1px solid var(--border);
-    border-radius: 20px; backdrop-filter: blur(8px);
-  }
-  .chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text3); transition: all 0.4s; }
-  .chip.ready .dot { background: var(--green); box-shadow: 0 0 5px var(--green); }
-  .chip.loading .dot { background: var(--amber); animation: blink 0.7s infinite; }
-  .chip.error .dot { background: var(--red); }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    video, #overlay, #snap {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
 
-  /* Scan frame */
-  .frame {
-    position: fixed; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1; pointer-events: none;
-  }
-  .frame-box { width: min(88vw, 340px); aspect-ratio: 1; position: relative; }
-  .c { position: absolute; width: 28px; height: 28px; border-color: rgba(255,255,255,0.65); border-style: solid; }
-  .c.tl { top:0;left:0; border-width:2px 0 0 2px; border-radius:4px 0 0 0; }
-  .c.tr { top:0;right:0; border-width:2px 2px 0 0; border-radius:0 4px 0 0; }
-  .c.bl { bottom:0;left:0; border-width:0 0 2px 2px; border-radius:0 0 0 4px; }
-  .c.br { bottom:0;right:0; border-width:0 2px 2px 0; border-radius:0 0 4px 0; }
-  .scan-line {
-    position: absolute; left: 4px; right: 4px; height: 1.5px;
-    background: linear-gradient(90deg, transparent, var(--green), transparent);
-    opacity: 0;
-  }
-  .scan-line.active { opacity: 0.9; animation: sweep 1.4s ease-in-out infinite; }
-  @keyframes sweep { 0%{top:4px} 100%{top:calc(100% - 4px)} }
-  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    video {
+      object-fit: cover;
+      background: #050706;
+    }
 
-  /* Bbox overlay */
-  #bbox-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+    #overlay {
+      z-index: 2;
+      pointer-events: auto;
+    }
 
-  /* Loading overlay */
-  .loading-overlay {
-    position: fixed; inset: 0; z-index: 20;
-    background: rgba(0,0,0,0.88);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 16px;
-  }
-  .loading-overlay.hidden { display: none; }
-  .loading-pill {
-    width: 56px; height: 32px; border-radius: 16px;
-    border: 2px solid var(--green); position: relative; overflow: hidden;
-  }
-  .loading-pill::before { content:''; position:absolute; left:50%; top:0; bottom:0; width:2px; background:var(--green); opacity:0.5; }
-  .loading-pill::after {
-    content:''; position:absolute; inset:0;
-    background: linear-gradient(90deg, var(--green-dim), transparent);
-    animation: shimmer 1.1s ease-in-out infinite alternate;
-  }
-  @keyframes shimmer { from{opacity:0.2} to{opacity:1} }
-  .loading-text { color: var(--text); font-size: 15px; font-weight: 500; }
-  .loading-sub { color: var(--text2); font-size: 12px; font-family: 'DM Mono', monospace; }
+    #snap { display: none; }
 
-  /* Bottom */
-  .bottom {
-    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-    width: 100%; max-width: 480px;
-    padding: 20px 24px 40px;
-    background: linear-gradient(to top, rgba(0,0,0,0.88) 55%, transparent);
-    z-index: 10;
-    display: flex; flex-direction: column; align-items: center; gap: 14px;
-  }
-  .hint-text { font-size: 12px; color: rgba(255,255,255,0.5); font-family: 'DM Mono', monospace; text-align: center; }
+    .topbar {
+      position: absolute;
+      inset: env(safe-area-inset-top) 0 auto 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 56px;
+      background: linear-gradient(to bottom, rgba(0,0,0,.72), rgba(0,0,0,0));
+      pointer-events: none;
+    }
 
-  .scan-btn {
-    width: 76px; height: 76px; border-radius: 50%;
-    background: var(--green); border: 3px solid rgba(255,255,255,0.25);
-    cursor: pointer; transition: background 0.2s;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .scan-btn:active { transform: scale(0.92); }
-  .scan-btn.ready { animation: pulse-ring 2s ease-out infinite; }
-  @keyframes pulse-ring {
-    0%{box-shadow:0 0 0 0 var(--green-glow)}
-    70%{box-shadow:0 0 0 18px transparent}
-    100%{box-shadow:0 0 0 0 transparent}
-  }
-  .scan-btn svg { width: 32px; height: 32px; fill: #fff; }
-  .scan-btn:disabled { opacity: 0.35; animation: none; pointer-events: none; }
+    .brand {
+      font-weight: 760;
+      letter-spacing: 0;
+      font-size: 18px;
+    }
 
-  /* Tune button */
-  .tune-btn {
-    position: fixed; bottom: 48px; left: 24px;
-    width: 44px; height: 44px; border-radius: 50%;
-    background: rgba(0,0,0,0.6); border: 1px solid var(--border);
-    backdrop-filter: blur(8px); cursor: pointer;
-    display: flex; align-items: center; justify-content: center; z-index: 11;
-  }
-  .tune-btn svg { width: 20px; height: 20px; fill: var(--text2); }
+    .brand span { color: var(--green); }
 
-  /* History button */
-  .history-btn {
-    position: fixed; bottom: 48px; right: 24px;
-    width: 44px; height: 44px; border-radius: 50%;
-    background: rgba(0,0,0,0.6); border: 1px solid var(--border);
-    backdrop-filter: blur(8px); cursor: pointer;
-    display: flex; align-items: center; justify-content: center; z-index: 11;
-  }
-  .history-btn svg { width: 20px; height: 20px; fill: var(--text2); }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(5,7,6,.62);
+      color: var(--soft);
+      font-size: 12px;
+      backdrop-filter: blur(10px);
+    }
 
-  /* Result sheet */
-  .sheet {
-    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%) translateY(100%);
-    width: 100%; max-width: 480px;
-    background: #0d1117; border-top: 1px solid var(--border);
-    border-radius: 20px 20px 0 0; z-index: 30;
-    padding: 20px 24px 44px;
-    transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
-  }
-  .sheet.open { transform: translateX(-50%) translateY(0); }
-  .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--text3); margin: 0 auto 20px; }
-  .count-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-  .count-big { font-size: 76px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--green); line-height: 1; }
-  .count-label { font-size: 16px; color: var(--text2); }
-  .count-sub { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text2); margin-bottom: 20px; }
-  .count-sub span { color: var(--green); }
-  .drug-wrap { display: flex; gap: 8px; margin-bottom: 10px; align-items: center; }
-  .drug-input {
-    flex: 1; background: rgba(255,255,255,0.06);
-    border: 1px solid var(--border); border-radius: 10px;
-    color: var(--text); font-family: 'DM Sans', sans-serif;
-    font-size: 15px; padding: 12px 14px; outline: none; transition: border-color 0.2s;
-  }
-  .drug-input:focus { border-color: var(--green); }
-  .drug-input::placeholder { color: var(--text3); }
-  .save-btn {
-    padding: 12px 20px; border-radius: 10px;
-    background: var(--green-dim); border: 1px solid var(--green);
-    color: var(--green); font-family: 'DM Sans', sans-serif;
-    font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  }
-  .save-btn:active { transform: scale(0.97); }
-  .dismiss-btn {
-    width: 100%; padding: 13px; background: none;
-    border: 1px solid var(--border); border-radius: 10px;
-    color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer;
-  }
+    .status::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
 
-  /* Tune drawer */
-  .drawer {
-    position: fixed; inset: 0; background: #0d1117; z-index: 40;
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
-    display: flex; flex-direction: column;
-    max-width: 480px; left: 50%; margin-left: -240px;
-  }
-  .drawer.open { transform: translateX(0); }
-  @media (max-width: 480px) { .drawer { left:0; margin-left:0; } }
-  .drawer-header {
-    padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-  }
-  .drawer-title { font-size: 16px; font-weight: 600; color: var(--text); }
-  .drawer-close {
-    width: 32px; height: 32px; border-radius: 50%;
-    background: rgba(255,255,255,0.07); border: none;
-    color: var(--text2); font-size: 20px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .drawer-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
-  .param-group { display: flex; flex-direction: column; gap: 10px; }
-  .param-label { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.5px; }
-  .param-desc { font-size: 12px; color: var(--text3); line-height: 1.5; }
-  .slider-row { display: flex; align-items: center; gap: 10px; }
-  .slider-name { font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; min-width: 80px; }
-  input[type=range] {
-    flex: 1; height: 4px; appearance: none;
-    background: rgba(255,255,255,0.12); border-radius: 2px; outline: none;
-  }
-  input[type=range]::-webkit-slider-thumb {
-    appearance: none; width: 18px; height: 18px;
-    border-radius: 50%; background: var(--green); cursor: pointer; border: 2px solid #0d1117;
-  }
-  .slider-val { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--green); min-width: 36px; text-align: right; }
-  .info-box {
-    background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.2);
-    border-radius: 10px; padding: 12px 14px;
-    font-size: 12px; color: #58a6ff; line-height: 1.6;
-  }
+    .status.ready::before { background: var(--green); box-shadow: 0 0 10px var(--green); }
+    .status.error::before { background: var(--red); }
 
-  /* History drawer */
-  .history-drawer {
-    position: fixed; inset: 0; background: #0d1117; z-index: 40;
-    transform: translateX(100%);
-    transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
-    display: flex; flex-direction: column;
-    max-width: 480px; left: 50%; margin-left: -240px;
-  }
-  .history-drawer.open { transform: translateX(0); }
-  @media (max-width: 480px) { .history-drawer { left:0; margin-left:0; } }
-  .h-body { flex: 1; overflow-y: auto; padding: 12px 20px; }
-  .h-item {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 13px 0; border-bottom: 1px solid var(--border);
-  }
-  .h-item:last-child { border-bottom: none; }
-  .h-drug { font-size: 15px; font-weight: 500; color: var(--text); }
-  .h-meta { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .h-count { font-size: 26px; font-weight: 600; font-family: 'DM Mono', monospace; color: var(--green); }
-  .empty-state { text-align: center; color: var(--text3); font-size: 14px; padding: 48px 0; }
-  .clear-row { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; justify-content: center; }
-  .clear-btn {
-    font-size: 12px; color: var(--red); background: none;
-    font-family: 'DM Mono', monospace; cursor: pointer; padding: 8px 16px;
-    border-radius: 8px; border: 1px solid rgba(248,81,73,0.2);
-  }
+    .frame {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
 
-  /* Toast */
-  .toast {
-    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
-    background: rgba(22,27,34,0.95); border: 1px solid var(--border);
-    color: var(--text); font-size: 13px; padding: 9px 18px;
-    border-radius: 20px; z-index: 50; opacity: 0; transition: opacity 0.25s;
-    white-space: nowrap; pointer-events: none; backdrop-filter: blur(12px);
-  }
-  .toast.show { opacity: 1; }
-  .toast.success { border-color: var(--green); color: var(--green); }
-  .toast.error { border-color: var(--red); color: var(--red); }
-</style>
+    .frame-box {
+      width: min(86vw, 380px);
+      aspect-ratio: 1;
+      border: 1px solid rgba(255,255,255,.16);
+      position: relative;
+      box-shadow: 0 0 0 999px rgba(0,0,0,.16);
+    }
+
+    .corner {
+      position: absolute;
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(255,255,255,.78);
+    }
+
+    .tl { top: -2px; left: -2px; border-right: 0; border-bottom: 0; }
+    .tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; }
+    .bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; }
+    .br { bottom: -2px; right: -2px; border-left: 0; border-top: 0; }
+
+    .bottom {
+      position: absolute;
+      inset: auto 0 0 0;
+      z-index: 6;
+      display: grid;
+      gap: 12px;
+      padding: 70px 18px calc(18px + env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(0,0,0,.88), rgba(0,0,0,0));
+    }
+
+    .hint {
+      text-align: center;
+      color: rgba(255,255,255,.72);
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 52px 1fr 52px;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .icon-btn, .capture {
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      border: 1px solid var(--line);
+      background: rgba(8,18,15,.72);
+      backdrop-filter: blur(12px);
+    }
+
+    .icon-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      color: var(--soft);
+    }
+
+    .capture {
+      justify-self: center;
+      width: 82px;
+      height: 82px;
+      border-radius: 50%;
+      background: var(--green);
+      border: 5px solid rgba(255,255,255,.24);
+      box-shadow: 0 0 0 9px rgba(66,209,125,.18);
+    }
+
+    .capture:disabled {
+      opacity: .45;
+      box-shadow: none;
+      cursor: wait;
+    }
+
+    .capture svg, .icon-btn svg { width: 25px; height: 25px; fill: currentColor; }
+    .capture svg { width: 34px; height: 34px; color: #fff; }
+
+    .start {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      background:
+        linear-gradient(to bottom, rgba(8,18,15,.75), rgba(8,18,15,.96)),
+        radial-gradient(circle at 50% 28%, rgba(66,209,125,.18), transparent 32%);
+    }
+
+    .start-inner {
+      width: min(100%, 380px);
+      display: grid;
+      gap: 18px;
+      text-align: center;
+    }
+
+    .start h1 {
+      margin: 0;
+      font-size: clamp(32px, 10vw, 48px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    .start p {
+      margin: 0;
+      color: var(--soft);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .primary {
+      min-height: 52px;
+      border-radius: 8px;
+      background: var(--green);
+      color: #05220f;
+      font-weight: 760;
+      cursor: pointer;
+    }
+
+    .secondary {
+      min-height: 44px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color: var(--soft);
+      cursor: pointer;
+    }
+
+    .sheet, .drawer {
+      position: absolute;
+      z-index: 20;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+      box-shadow: 0 -16px 40px rgba(0,0,0,.35);
+      transform: translateY(105%);
+      transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    }
+
+    .sheet.open, .drawer.open { transform: translateY(0); }
+
+    .sheet {
+      border-radius: 18px 18px 0 0;
+      padding: 12px 18px calc(18px + env(safe-area-inset-bottom));
+    }
+
+    .handle {
+      width: 38px;
+      height: 4px;
+      margin: 0 auto 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.25);
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .count {
+      font-size: 74px;
+      line-height: .9;
+      font-weight: 800;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .stepper {
+      display: grid;
+      grid-template-columns: 46px 46px;
+      gap: 8px;
+    }
+
+    .stepper button {
+      height: 46px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    .form {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 12px;
+      outline: none;
+    }
+
+    textarea { min-height: 70px; resize: none; }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .drawer {
+      top: 10%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      border-radius: 18px 18px 0 0;
+    }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 720;
+    }
+
+    .drawer-body {
+      overflow: auto;
+      padding: 16px 18px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .setting {
+      display: grid;
+      gap: 8px;
+    }
+
+    .setting label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--soft);
+      font-size: 14px;
+    }
+
+    .setting small {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      accent-color: var(--green);
+    }
+
+    .history-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .history-row strong { display: block; }
+    .history-row small { color: var(--muted); }
+    .history-count { color: var(--green); font-size: 26px; font-weight: 800; }
+    .empty { color: var(--muted); text-align: center; padding: 42px 0; }
+
+    .toast {
+      position: absolute;
+      z-index: 30;
+      top: calc(64px + env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: calc(100% - 32px);
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(16,25,23,.94);
+      color: var(--text);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toast.show { opacity: 1; }
+    .hidden { display: none; }
+  </style>
 </head>
 <body>
+  <main class="app">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <canvas id="snap"></canvas>
 
-<video id="video" autoplay playsinline muted></video>
-<canvas id="bbox-canvas"></canvas>
-<canvas id="snap-canvas" style="display:none"></canvas>
-
-<!-- Scan frame -->
-<div class="frame">
-  <div class="frame-box">
-    <div class="c tl"></div><div class="c tr"></div>
-    <div class="c bl"></div><div class="c br"></div>
-    <div class="scan-line" id="scanLine"></div>
-  </div>
-</div>
-
-<!-- Top bar -->
-<div class="topbar">
-  <div class="app-name">Pill<span>Count</span></div>
-  <div class="chip loading" id="chip"><div class="dot"></div><span id="chipText">loading…</span></div>
-</div>
-
-<!-- Bottom -->
-<div class="bottom">
-  <div class="hint-text" id="hintText">Starting camera…</div>
-  <button class="scan-btn" id="scanBtn" onclick="captureAndCount()" disabled>
-    <svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M23 5h-6v6h6V5zm-6 8h1.5v1.5H17V13zm1.5 1.5H20V16h-1.5v-1.5zM20 13h1.5v1.5H20V13zm-3 3h1.5v1.5H17V16zm1.5 1.5H20V19h-1.5v-1.5zM20 16h1.5v1.5H20V16zm1.5 1.5H23V19h-1.5v-1.5zM23 13h-1.5v1.5H23V13zm0 4.5h-1.5V19H23v-1.5z"/></svg>
-  </button>
-</div>
-
-<button class="tune-btn" onclick="openTune()">
-  <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
-</button>
-
-<button class="history-btn" onclick="openHistory()">
-  <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7v3l4-4-4-4v3zm1 10h-2V8h2v4l2.28 1.36-1 1.72L14 13z"/></svg>
-</button>
-
-<!-- Loading overlay -->
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-pill"></div>
-  <div class="loading-text">Starting…</div>
-  <div class="loading-sub" id="loadingSub">Loading OpenCV…</div>
-</div>
-
-<!-- Result sheet -->
-<div class="sheet" id="resultSheet">
-  <div class="sheet-handle"></div>
-  <div class="count-row">
-    <div class="count-big" id="countBig">0</div>
-    <div class="count-label">pills detected</div>
-  </div>
-  <div class="count-sub" id="countSub">—</div>
-  <div class="drug-wrap">
-    <input type="text" class="drug-input" id="drugName" placeholder="Drug name (optional)">
-    <button class="save-btn" onclick="saveRecord()">Save</button>
-  </div>
-  <button class="dismiss-btn" onclick="closeSheet()">Scan again</button>
-</div>
-
-<!-- Tune drawer -->
-<div class="drawer" id="tuneDrawer">
-  <div class="drawer-header">
-    <span class="drawer-title">Adjust detection</span>
-    <button class="drawer-close" onclick="closeTune()">×</button>
-  </div>
-  <div class="drawer-body">
-    <div class="info-box">
-      Tune these if pills are being missed or background shapes are being counted. Changes apply immediately on next scan.
+    <div class="topbar">
+      <div class="brand">Pill<span>Count</span></div>
+      <div id="status" class="status">準備中</div>
     </div>
-    <div class="param-group">
-      <div class="param-label">Min distance between pills</div>
-      <div class="param-desc">Increase if nearby pills are merged into one.</div>
-      <div class="slider-row">
-        <span class="slider-name">minDist</span>
-        <input type="range" id="s_minDist" min="10" max="80" value="30" step="1" oninput="updateParam('minDist',this.value)">
-        <span class="slider-val" id="v_minDist">30</span>
+
+    <div class="frame" aria-hidden="true">
+      <div class="frame-box" id="frameBox">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
       </div>
     </div>
-    <div class="param-group">
-      <div class="param-label">Edge sensitivity (param1)</div>
-      <div class="param-desc">Lower = more sensitive edges detected.</div>
-      <div class="slider-row">
-        <span class="slider-name">param1</span>
-        <input type="range" id="s_p1" min="30" max="200" value="100" step="1" oninput="updateParam('p1',this.value)">
-        <span class="slider-val" id="v_p1">100</span>
+
+    <section id="start" class="start">
+      <div class="start-inner">
+        <h1>藥局手機數藥</h1>
+        <p>把藥錠倒在數藥盤上，手機對準方框拍攝。系統會自動圈出候選藥錠，藥師仍可點一下畫面手動增減確認。</p>
+        <button class="primary" id="startCamera">開啟相機</button>
+        <button class="secondary" id="demoBtn">沒有相機時看示範</button>
       </div>
-    </div>
-    <div class="param-group">
-      <div class="param-label">Circle strictness (param2)</div>
-      <div class="param-desc">Lower = more circles found. Higher = only perfect circles.</div>
-      <div class="slider-row">
-        <span class="slider-name">param2</span>
-        <input type="range" id="s_p2" min="10" max="80" value="35" step="1" oninput="updateParam('p2',this.value)">
-        <span class="slider-val" id="v_p2">35</span>
+    </section>
+
+    <section class="bottom">
+      <div class="hint" id="hint">開啟相機後，讓藥錠分散在方框內</div>
+      <div class="controls">
+        <button class="icon-btn" id="settingsBtn" title="調整偵測">
+          <svg viewBox="0 0 24 24"><path d="M19.4 13.5a7.8 7.8 0 0 0 .1-1.5 7.8 7.8 0 0 0-.1-1.5l2-1.5-2-3.5-2.4 1a7.7 7.7 0 0 0-2.6-1.5L14 2h-4l-.4 2.5A7.7 7.7 0 0 0 7 6L4.6 5 2.6 8.5l2 1.5A7.8 7.8 0 0 0 4.5 12c0 .5 0 1 .1 1.5l-2 1.5 2 3.5 2.4-1a7.7 7.7 0 0 0 2.6 1.5L10 22h4l.4-2.5a7.7 7.7 0 0 0 2.6-1.5l2.4 1 2-3.5-2-1.5ZM12 15.5A3.5 3.5 0 1 1 12 8a3.5 3.5 0 0 1 0 7Z"/></svg>
+        </button>
+        <button class="capture" id="captureBtn" disabled title="拍照計數">
+          <svg viewBox="0 0 24 24"><path d="M9 4 7.2 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.2L15 4H9Zm3 14a5 5 0 1 1 0-10 5 5 0 0 1 0 10Zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/></svg>
+        </button>
+        <button class="icon-btn" id="historyBtn" title="紀錄">
+          <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 1-8 4.9V11H3V4h7v2H6.4A7 7 0 1 0 13 5v4l3 1.8-1 1.7-4-2.4V3h2Z"/></svg>
+        </button>
       </div>
-    </div>
-    <div class="param-group">
-      <div class="param-label">Pill size range (px)</div>
-      <div class="param-desc">Min and max radius of pills in the image.</div>
-      <div class="slider-row">
-        <span class="slider-name">minRadius</span>
-        <input type="range" id="s_minR" min="5" max="80" value="25" step="1" oninput="updateParam('minR',this.value)">
-        <span class="slider-val" id="v_minR">25</span>
+    </section>
+
+    <section class="sheet" id="resultSheet">
+      <div class="handle"></div>
+      <div class="result-grid">
+        <div>
+          <div class="count" id="countText">0</div>
+          <div class="label" id="resultMeta">點畫面可手動新增或移除標記</div>
+        </div>
+        <div class="stepper">
+          <button id="minusBtn">-</button>
+          <button id="plusBtn">+</button>
+        </div>
       </div>
-      <div class="slider-row">
-        <span class="slider-name">maxRadius</span>
-        <input type="range" id="s_maxR" min="20" max="150" value="60" step="1" oninput="updateParam('maxR',this.value)">
-        <span class="slider-val" id="v_maxR">60</span>
+      <div class="form">
+        <input id="drugName" autocomplete="off" placeholder="藥名或處方代號">
+        <textarea id="note" placeholder="備註，例如批號、處方箋、盤號"></textarea>
       </div>
-    </div>
-  </div>
-</div>
+      <div class="actions">
+        <button class="secondary" id="againBtn">重新拍攝</button>
+        <button class="primary" id="saveBtn">儲存紀錄</button>
+      </div>
+    </section>
 
-<!-- History drawer -->
-<div class="history-drawer" id="historyDrawer">
-  <div class="drawer-header">
-    <span class="drawer-title">History</span>
-    <button class="drawer-close" onclick="closeHistory()">×</button>
-  </div>
-  <div class="h-body" id="historyBody"></div>
-  <div class="clear-row">
-    <button class="clear-btn" onclick="clearHistory()">Clear all records</button>
-  </div>
-</div>
+    <section class="drawer" id="settings">
+      <div class="drawer-head">
+        <span>偵測調整</span>
+        <button class="icon-btn" id="closeSettings" title="關閉">×</button>
+      </div>
+      <div class="drawer-body">
+        <div class="setting">
+          <label>敏感度 <span id="vSensitivity">54</span></label>
+          <input id="sensitivity" type="range" min="20" max="90" value="54">
+          <small>調高會找到更多藥錠，也可能把盤面反光算進去。</small>
+        </div>
+        <div class="setting">
+          <label>最小藥錠 <span id="vMinSize">16</span></label>
+          <input id="minSize" type="range" min="6" max="60" value="16">
+          <small>單位是影像中的像素半徑，小藥錠或遠距離拍攝可調低。</small>
+        </div>
+        <div class="setting">
+          <label>最大藥錠 <span id="vMaxSize">96</span></label>
+          <input id="maxSize" type="range" min="28" max="180" value="96">
+          <small>膠囊或大型錠劑可調高；太高會把盤面邊緣算入。</small>
+        </div>
+        <div class="setting">
+          <label>分離距離 <span id="vMerge">18</span></label>
+          <input id="mergeDistance" type="range" min="6" max="50" value="18">
+          <small>用來合併重複標記。密集藥錠被合併時可調低。</small>
+        </div>
+      </div>
+    </section>
 
-<div class="toast" id="toast"></div>
+    <section class="drawer" id="history">
+      <div class="drawer-head">
+        <span>計數紀錄</span>
+        <button class="icon-btn" id="closeHistory" title="關閉">×</button>
+      </div>
+      <div class="drawer-body" id="historyBody"></div>
+      <div class="actions" style="padding: 12px 18px calc(18px + env(safe-area-inset-bottom));">
+        <button class="secondary" id="exportCsv">匯出 CSV</button>
+        <button class="secondary" id="clearHistory">清除</button>
+      </div>
+    </section>
 
-<!-- OpenCV.js -->
-<script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady()"></script>
+    <div class="toast" id="toast"></div>
+  </main>
 
-<script>
-// ── Params (match your web_app.py) ────────────────────────────────────────
-const params = {
-  minDist: 30, p1: 100, p2: 35, minR: 25, maxR: 60
-};
-
-let cvReady = false;
-let lastResult = null;
-let history = JSON.parse(localStorage.getItem('pc_history') || '[]');
-
-// ── OpenCV ready ───────────────────────────────────────────────────────────
-function onOpenCvReady() {
-  cvReady = true;
-  document.getElementById('loadingOverlay').classList.add('hidden');
-  document.getElementById('scanBtn').disabled = false;
-  document.getElementById('scanBtn').classList.add('ready');
-  document.getElementById('hintText').textContent = 'Point at pills and tap';
-  setChip('ready', 'ready');
-}
-
-// ── Camera ────────────────────────────────────────────────────────────────
-(async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-    });
-    const video = document.getElementById('video');
-    video.srcObject = stream;
-    video.onloadedmetadata = () => {
-      try {
-        const track = stream.getVideoTracks()[0];
-        const caps = track.getCapabilities();
-        if (caps && caps.zoom) track.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] });
-      } catch(e) {}
-      document.getElementById('loadingSub').textContent = 'Loading OpenCV…';
+  <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady()"></script>
+  <script>
+    const els = {
+      video: document.getElementById('video'),
+      overlay: document.getElementById('overlay'),
+      snap: document.getElementById('snap'),
+      start: document.getElementById('start'),
+      startCamera: document.getElementById('startCamera'),
+      demoBtn: document.getElementById('demoBtn'),
+      status: document.getElementById('status'),
+      hint: document.getElementById('hint'),
+      captureBtn: document.getElementById('captureBtn'),
+      settings: document.getElementById('settings'),
+      history: document.getElementById('history'),
+      resultSheet: document.getElementById('resultSheet'),
+      countText: document.getElementById('countText'),
+      resultMeta: document.getElementById('resultMeta'),
+      drugName: document.getElementById('drugName'),
+      note: document.getElementById('note'),
+      toast: document.getElementById('toast')
     };
-  } catch(e) {
-    toast('Camera access denied', 'error');
-  }
-})();
 
-// ── Capture & count ────────────────────────────────────────────────────────
-async function captureAndCount() {
-  if (!cvReady) { toast('OpenCV not ready yet', 'error'); return; }
+    const settings = {
+      sensitivity: 54,
+      minSize: 16,
+      maxSize: 96,
+      mergeDistance: 18
+    };
 
-  const btn = document.getElementById('scanBtn');
-  btn.disabled = true; btn.classList.remove('ready');
-  btn.style.background = 'var(--amber)';
-  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:28px;height:28px;fill:#fff;animation:spin 0.7s linear infinite"><path d="M12 4V2A10 10 0 0 0 2 12h2a8 8 0 0 1 8-8z"/></svg>';
-  document.getElementById('hintText').textContent = '計算中… Counting…';
-  document.getElementById('scanLine').classList.add('active');
-  setChip('loading', 'counting');
-  clearBbox();
+    let cvReady = false;
+    let stream = null;
+    let detections = [];
+    let displayDetections = [];
+    let lastImage = { width: 0, height: 0 };
+    let lastMapping = null;
+    let history = JSON.parse(localStorage.getItem('pillcount_history') || '[]');
 
-  // Let UI repaint before heavy processing
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    function onOpenCvReady() {
+      cvReady = true;
+      setStatus('ready', '偵測模組已就緒');
+      if (stream) els.captureBtn.disabled = false;
+    }
 
-  try {
-    const video = document.getElementById('video');
-    const snap = document.getElementById('snap-canvas');
-    // Use native video resolution for best accuracy
-    snap.width  = video.videoWidth  || 640;
-    snap.height = video.videoHeight || 480;
-    snap.getContext('2d').drawImage(video, 0, 0);
+    function setStatus(kind, text) {
+      els.status.className = 'status ' + (kind || '');
+      els.status.textContent = text;
+    }
 
-    const count = detectPills(snap);
+    function toast(message) {
+      els.toast.textContent = message;
+      els.toast.classList.add('show');
+      clearTimeout(toast.timer);
+      toast.timer = setTimeout(() => els.toast.classList.remove('show'), 2400);
+    }
 
-    // Draw results on bbox canvas
-    drawCircles(snap);
+    async function startCamera() {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setStatus('error', '此瀏覽器不支援相機');
+        toast('請用手機 Chrome 或 Safari 開啟 HTTPS 網址');
+        return;
+      }
 
-    document.getElementById('countBig').textContent = count;
-    document.getElementById('countSub').innerHTML =
-      'OpenCV HoughCircles &nbsp;·&nbsp; <span>' + new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) + '</span>';
-    document.getElementById('drugName').value = '';
-    lastResult = { total: count, timestamp: new Date().toISOString() };
-    document.getElementById('resultSheet').classList.add('open');
-    setChip('ready', 'ready');
-    toast(count + ' pill' + (count !== 1 ? 's' : '') + ' detected', 'success');
+      try {
+        setStatus('', '開啟相機中');
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+          audio: false
+        });
+        els.video.srcObject = stream;
+        await els.video.play();
+        els.start.classList.add('hidden');
+        els.hint.textContent = '讓藥錠分散在方框內，拍攝後請人工確認';
+        els.captureBtn.disabled = !cvReady;
+        setStatus(cvReady ? 'ready' : '', cvReady ? '可開始計數' : '載入偵測模組');
+        resizeOverlay();
+      } catch (error) {
+        setStatus('error', '相機未開啟');
+        toast('相機權限未允許，或目前網址不是 HTTPS');
+      }
+    }
 
-  } catch(e) {
-    toast('Error: ' + e.message, 'error');
-    setChip('error', 'error');
-    console.error(e);
-  }
+    function makeDemo() {
+      els.start.classList.add('hidden');
+      els.captureBtn.disabled = false;
+      detections = [
+        { x: 260, y: 280, r: 34, kind: 'tablet' },
+        { x: 360, y: 260, r: 31, kind: 'tablet' },
+        { x: 455, y: 320, r: 36, kind: 'tablet' },
+        { x: 330, y: 390, r: 32, kind: 'tablet' },
+        { x: 460, y: 440, r: 44, kind: 'capsule', w: 94, h: 40 },
+        { x: 240, y: 460, r: 38, kind: 'capsule', w: 84, h: 42 }
+      ];
+      lastImage = { width: 720, height: 720 };
+      drawDetections();
+      showResult('示範資料');
+      setStatus('ready', '示範模式');
+    }
 
-  document.getElementById('scanLine').classList.remove('active');
-  btn.disabled = false; btn.classList.add('ready');
-  btn.style.background = 'var(--green)';
-  btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M23 5h-6v6h6V5zm-6 8h1.5v1.5H17V13zm1.5 1.5H20V16h-1.5v-1.5zM20 13h1.5v1.5H20V13zm-3 3h1.5v1.5H17V16zm1.5 1.5H20V19h-1.5v-1.5zM20 16h1.5v1.5H20V16zm1.5 1.5H23V19h-1.5v-1.5zM23 13h-1.5v1.5H23V13zm0 4.5h-1.5V19H23v-1.5z"/></svg>';
-  document.getElementById('hintText').textContent = 'Point at pills and tap';
-}
+    function captureAndCount() {
+      if (!cvReady && typeof cv === 'undefined') {
+        toast('偵測模組還沒載入完成');
+        return;
+      }
+      if (!stream || !els.video.videoWidth) {
+        toast('請先開啟相機');
+        return;
+      }
 
-// ── OpenCV detection ───────────────────────────────────────────────────────
-let lastCircles = [];
+      els.captureBtn.disabled = true;
+      setStatus('', '計數中');
+      els.hint.textContent = '正在分析影像';
 
-function detectPills(canvas) {
-  const src = cv.imread(canvas);
-  const gray = new cv.Mat();
-  const blurred = new cv.Mat();
-  const circles = new cv.Mat();
-
-  try {
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-    cv.medianBlur(gray, blurred, 5);
-
-    cv.HoughCircles(
-      blurred, circles, cv.HOUGH_GRADIENT,
-      1.2,               // dp
-      params.minDist,    // minDist
-      params.p1,         // param1
-      params.p2,         // param2
-      params.minR,       // minRadius
-      params.maxR        // maxRadius
-    );
-
-    // Store circles for drawing
-    lastCircles = [];
-    for (let i = 0; i < circles.cols; i++) {
-      lastCircles.push({
-        x: circles.data32F[i * 3],
-        y: circles.data32F[i * 3 + 1],
-        r: circles.data32F[i * 3 + 2]
+      requestAnimationFrame(() => {
+        try {
+          const sourceWidth = els.video.videoWidth;
+          const sourceHeight = els.video.videoHeight;
+          const maxSide = 1280;
+          const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+          const width = Math.round(sourceWidth * scale);
+          const height = Math.round(sourceHeight * scale);
+          els.snap.width = width;
+          els.snap.height = height;
+          const ctx = els.snap.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(els.video, 0, 0, width, height);
+          lastImage = { width, height };
+          detections = detectPills(els.snap);
+          drawDetections();
+          showResult('自動偵測');
+          setStatus('ready', '完成，請人工確認');
+        } catch (error) {
+          console.error(error);
+          setStatus('error', '偵測失敗');
+          toast('偵測失敗，請調整光線或重新拍攝');
+        } finally {
+          els.captureBtn.disabled = false;
+          els.hint.textContent = '點畫面可新增或移除標記';
+        }
       });
     }
-    return lastCircles.length;
 
-  } finally {
-    src.delete(); gray.delete(); blurred.delete(); circles.delete();
-  }
-}
+    function detectPills(canvas) {
+      const src = cv.imread(canvas);
+      const gray = new cv.Mat();
+      const blur = new cv.Mat();
+      const edges = new cv.Mat();
+      const contours = new cv.MatVector();
+      const hierarchy = new cv.Mat();
+      const circles = new cv.Mat();
+      const found = [];
 
-function drawCircles(snap) {
-  const c = document.getElementById('bbox-canvas');
-  c.width = window.innerWidth; c.height = window.innerHeight;
-  const ctx = c.getContext('2d');
+      try {
+        const roi = getImageRoi(canvas.width, canvas.height);
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+        cv.GaussianBlur(gray, blur, new cv.Size(7, 7), 1.6);
+        const low = Math.max(18, 110 - settings.sensitivity);
+        const high = Math.max(60, low * 2.4);
+      cv.Canny(blur, edges, low, high);
+      const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+      cv.dilate(edges, edges, kernel);
+      kernel.delete();
+        cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-  // Scale from snap coords to screen coords
-  const scaleX = c.width / snap.width;
-  const scaleY = c.height / snap.height;
-  // video is object-fit:cover so we need to account for that
-  const scale = Math.max(scaleX, scaleY);
-  const offX = (c.width  - snap.width  * scale) / 2;
-  const offY = (c.height - snap.height * scale) / 2;
+        const minArea = Math.PI * settings.minSize * settings.minSize * 0.45;
+        const maxArea = Math.PI * settings.maxSize * settings.maxSize * 3.2;
 
-  lastCircles.forEach((circ, i) => {
-    const sx = circ.x * scale + offX;
-    const sy = circ.y * scale + offY;
-    const sr = circ.r * scale;
+        for (let i = 0; i < contours.size(); i++) {
+          const cnt = contours.get(i);
+          const area = cv.contourArea(cnt);
+          if (area < minArea || area > maxArea) {
+            cnt.delete();
+            continue;
+          }
 
-    ctx.beginPath();
-    ctx.arc(sx, sy, sr, 0, 2 * Math.PI);
-    ctx.strokeStyle = '#3fb950';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
+          const rect = cv.boundingRect(cnt);
+          const cx = rect.x + rect.width / 2;
+          const cy = rect.y + rect.height / 2;
+          if (!insideRoi(cx, cy, roi)) {
+            cnt.delete();
+            continue;
+          }
 
-    ctx.beginPath();
-    ctx.arc(sx, sy, 4, 0, 2 * Math.PI);
-    ctx.fillStyle = '#f85149';
-    ctx.fill();
+          const aspect = rect.width / Math.max(1, rect.height);
+          if (aspect < 0.28 || aspect > 3.6) {
+            cnt.delete();
+            continue;
+          }
 
-    ctx.fillStyle = '#fff';
-    ctx.font = '500 12px DM Mono, monospace';
-    ctx.fillText(i + 1, sx - 4, sy - sr - 6);
-  });
-}
+          const perimeter = cv.arcLength(cnt, true);
+          const circularity = perimeter ? 4 * Math.PI * area / (perimeter * perimeter) : 0;
+          const extent = area / Math.max(1, rect.width * rect.height);
+          if (circularity < 0.22 || extent < 0.28) {
+            cnt.delete();
+            continue;
+          }
 
-function clearBbox() {
-  const c = document.getElementById('bbox-canvas');
-  c.getContext('2d').clearRect(0, 0, c.width, c.height);
-  lastCircles = [];
-}
+          found.push({
+            x: cx,
+            y: cy,
+            r: Math.max(rect.width, rect.height) / 2,
+            w: rect.width,
+            h: rect.height,
+            kind: aspect > 1.45 || aspect < 0.7 ? 'capsule' : 'tablet'
+          });
+          cnt.delete();
+        }
 
-// ── Params ────────────────────────────────────────────────────────────────
-function updateParam(key, val) {
-  params[key] = parseFloat(val);
-  document.getElementById('v_' + key).textContent = val;
-}
+        cv.HoughCircles(
+          blur,
+          circles,
+          cv.HOUGH_GRADIENT,
+          1.25,
+          Math.max(settings.minSize * 1.6, settings.mergeDistance),
+          high,
+          Math.max(14, 74 - settings.sensitivity),
+          settings.minSize,
+          settings.maxSize
+        );
 
-// ── Sheet ─────────────────────────────────────────────────────────────────
-function closeSheet() {
-  document.getElementById('resultSheet').classList.remove('open');
-  clearBbox();
-}
+        for (let i = 0; i < circles.cols; i++) {
+          const x = circles.data32F[i * 3];
+          const y = circles.data32F[i * 3 + 1];
+          const r = circles.data32F[i * 3 + 2];
+          if (insideRoi(x, y, roi)) found.push({ x, y, r, kind: 'tablet' });
+        }
 
-// ── Drawers ───────────────────────────────────────────────────────────────
-function openTune()    { document.getElementById('tuneDrawer').classList.add('open'); }
-function closeTune()   { document.getElementById('tuneDrawer').classList.remove('open'); }
-function openHistory() { renderHistory(); document.getElementById('historyDrawer').classList.add('open'); }
-function closeHistory(){ document.getElementById('historyDrawer').classList.remove('open'); }
+        return mergeDetections(found);
+      } finally {
+        src.delete(); gray.delete(); blur.delete(); edges.delete();
+        contours.delete(); hierarchy.delete(); circles.delete();
+      }
+    }
 
-// ── History ───────────────────────────────────────────────────────────────
-function saveRecord() {
-  if (!lastResult) return;
-  const drug = document.getElementById('drugName').value.trim() || 'Unnamed';
-  history.unshift({ drug, ...lastResult });
-  if (history.length > 100) history.pop();
-  localStorage.setItem('pc_history', JSON.stringify(history));
-  closeSheet();
-  toast('Saved — ' + drug + ' · ' + lastResult.total + ' units', 'success');
-}
-function clearHistory() { history = []; localStorage.removeItem('pc_history'); renderHistory(); }
-function renderHistory() {
-  const el = document.getElementById('historyBody');
-  if (!history.length) { el.innerHTML = '<div class="empty-state">No records yet</div>'; return; }
-  el.innerHTML = history.slice(0, 50).map(h => {
-    const d = new Date(h.timestamp);
-    const lbl = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    return `<div class="h-item">
-      <div><div class="h-drug">${h.drug}</div><div class="h-meta">${lbl}</div></div>
-      <div class="h-count">${h.total}</div>
-    </div>`;
-  }).join('');
-}
+    function getImageRoi(width, height) {
+      const side = Math.min(width, height) * 0.82;
+      return {
+        x: (width - side) / 2,
+        y: (height - side) / 2,
+        size: side
+      };
+    }
 
-// ── Helpers ───────────────────────────────────────────────────────────────
-function setChip(cls, text) {
-  document.getElementById('chip').className = 'chip ' + cls;
-  document.getElementById('chipText').textContent = text;
-}
-function toast(msg, type) {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast show' + (type ? ' ' + type : '');
-  setTimeout(() => el.className = 'toast', 2600);
-}
-</script>
+    function insideRoi(x, y, roi) {
+      return x >= roi.x && y >= roi.y && x <= roi.x + roi.size && y <= roi.y + roi.size;
+    }
+
+    function mergeDetections(items) {
+      const sorted = items
+        .filter(item => Number.isFinite(item.x) && Number.isFinite(item.y) && item.r > 0)
+        .sort((a, b) => b.r - a.r);
+      const merged = [];
+
+      for (const item of sorted) {
+        const duplicate = merged.some(existing => {
+          const dx = existing.x - item.x;
+          const dy = existing.y - item.y;
+          const distance = Math.hypot(dx, dy);
+          return distance < Math.max(settings.mergeDistance, Math.min(existing.r, item.r) * 0.75);
+        });
+        if (!duplicate) merged.push(item);
+      }
+
+      return merged.sort((a, b) => a.y === b.y ? a.x - b.x : a.y - b.y);
+    }
+
+    function getVideoMapping() {
+      const rect = els.overlay.getBoundingClientRect();
+      const imageWidth = lastImage.width || els.video.videoWidth || rect.width;
+      const imageHeight = lastImage.height || els.video.videoHeight || rect.height;
+      const scale = Math.max(rect.width / imageWidth, rect.height / imageHeight);
+      return {
+        rect,
+        scale,
+        offsetX: (rect.width - imageWidth * scale) / 2,
+        offsetY: (rect.height - imageHeight * scale) / 2,
+        imageWidth,
+        imageHeight
+      };
+    }
+
+    function imageToScreen(item, map) {
+      return {
+        x: item.x * map.scale + map.offsetX,
+        y: item.y * map.scale + map.offsetY,
+        r: item.r * map.scale,
+        w: (item.w || item.r * 2) * map.scale,
+        h: (item.h || item.r * 2) * map.scale
+      };
+    }
+
+    function screenToImage(clientX, clientY) {
+      if (!lastMapping) return null;
+      const x = (clientX - lastMapping.rect.left - lastMapping.offsetX) / lastMapping.scale;
+      const y = (clientY - lastMapping.rect.top - lastMapping.offsetY) / lastMapping.scale;
+      if (x < 0 || y < 0 || x > lastMapping.imageWidth || y > lastMapping.imageHeight) return null;
+      return { x, y };
+    }
+
+    function drawDetections() {
+      resizeOverlay();
+      const ctx = els.overlay.getContext('2d');
+      ctx.clearRect(0, 0, els.overlay.width, els.overlay.height);
+      lastMapping = getVideoMapping();
+      displayDetections = detections.map((item, index) => {
+        const screen = imageToScreen(item, lastMapping);
+        drawDetection(ctx, screen, index + 1, item.kind);
+        return { ...screen, index };
+      });
+      els.countText.textContent = detections.length;
+    }
+
+    function drawDetection(ctx, item, label, kind) {
+      ctx.save();
+      ctx.strokeStyle = kind === 'capsule' ? varColor('--blue') : varColor('--green');
+      ctx.fillStyle = 'rgba(5,7,6,.72)';
+      ctx.lineWidth = 3;
+
+      if (kind === 'capsule') {
+        const width = Math.max(item.w, item.r * 1.8);
+        const height = Math.max(item.h, item.r * .9);
+        roundRect(ctx, item.x - width / 2, item.y - height / 2, width, height, height / 2);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, item.r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.arc(item.x, item.y, 13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = '700 13px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(label), item.x, item.y + .5);
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + width, y, x + width, y + height, radius);
+      ctx.arcTo(x + width, y + height, x, y + height, radius);
+      ctx.arcTo(x, y + height, x, y, radius);
+      ctx.arcTo(x, y, x + width, y, radius);
+      ctx.closePath();
+    }
+
+    function varColor(name) {
+      return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+
+    function showResult(source) {
+      els.countText.textContent = detections.length;
+      els.resultMeta.textContent = source + '，請人工確認後儲存';
+      els.resultSheet.classList.add('open');
+    }
+
+    function adjustCount(delta) {
+      if (delta > 0) {
+        const center = { x: lastImage.width / 2, y: lastImage.height / 2 };
+        detections.push({ x: center.x, y: center.y, r: settings.minSize * 1.4, kind: 'manual' });
+      } else {
+        detections.pop();
+      }
+      detections = detections.filter(Boolean);
+      drawDetections();
+    }
+
+    function handleOverlayTap(event) {
+      if (!els.resultSheet.classList.contains('open')) return;
+      const hit = displayDetections.find(item => Math.hypot(event.offsetX - item.x, event.offsetY - item.y) <= Math.max(22, item.r));
+      if (hit) {
+        detections.splice(hit.index, 1);
+        toast('已移除 1 個標記');
+      } else {
+        const point = screenToImage(event.clientX, event.clientY);
+        if (!point) return;
+        detections.push({ x: point.x, y: point.y, r: settings.minSize * 1.4, kind: 'manual' });
+        toast('已新增 1 個標記');
+      }
+      drawDetections();
+    }
+
+    function saveRecord() {
+      const record = {
+        drug: els.drugName.value.trim() || '未命名藥品',
+        note: els.note.value.trim(),
+        count: detections.length,
+        time: new Date().toISOString()
+      };
+      history.unshift(record);
+      history = history.slice(0, 200);
+      localStorage.setItem('pillcount_history', JSON.stringify(history));
+      els.resultSheet.classList.remove('open');
+      clearOverlay();
+      els.drugName.value = '';
+      els.note.value = '';
+      toast('已儲存 ' + record.count + ' 顆');
+    }
+
+    function clearOverlay() {
+      detections = [];
+      displayDetections = [];
+      const ctx = els.overlay.getContext('2d');
+      ctx.clearRect(0, 0, els.overlay.width, els.overlay.height);
+      els.countText.textContent = '0';
+    }
+
+    function renderHistory() {
+      const body = document.getElementById('historyBody');
+      if (!history.length) {
+        body.innerHTML = '<div class="empty">尚無紀錄</div>';
+        return;
+      }
+      body.innerHTML = history.map(item => {
+        const date = new Date(item.time);
+        const stamp = date.toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const note = item.note ? ' · ' + escapeHtml(item.note) : '';
+        return '<div class="history-row"><div><strong>' + escapeHtml(item.drug) + '</strong><small>' + stamp + note + '</small></div><div class="history-count">' + item.count + '</div></div>';
+      }).join('');
+    }
+
+    function exportCsv() {
+      if (!history.length) {
+        toast('沒有紀錄可匯出');
+        return;
+      }
+      const rows = [['time', 'drug', 'count', 'note'], ...history.map(item => [item.time, item.drug, item.count, item.note])];
+      const csv = rows.map(row => row.map(value => '"' + String(value || '').replaceAll('"', '""') + '"').join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'pillcount-history.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      }[char]));
+    }
+
+    function resizeOverlay() {
+      const rect = els.overlay.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      els.overlay.width = Math.round(rect.width * ratio);
+      els.overlay.height = Math.round(rect.height * ratio);
+      const ctx = els.overlay.getContext('2d');
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+
+    function bindSetting(id, key, labelId) {
+      const input = document.getElementById(id);
+      const label = document.getElementById(labelId);
+      input.addEventListener('input', () => {
+        settings[key] = Number(input.value);
+        label.textContent = input.value;
+      });
+    }
+
+    els.startCamera.addEventListener('click', startCamera);
+    els.demoBtn.addEventListener('click', makeDemo);
+    els.captureBtn.addEventListener('click', captureAndCount);
+    els.overlay.addEventListener('click', handleOverlayTap);
+    document.getElementById('settingsBtn').addEventListener('click', () => els.settings.classList.add('open'));
+    document.getElementById('closeSettings').addEventListener('click', () => els.settings.classList.remove('open'));
+    document.getElementById('historyBtn').addEventListener('click', () => { renderHistory(); els.history.classList.add('open'); });
+    document.getElementById('closeHistory').addEventListener('click', () => els.history.classList.remove('open'));
+    document.getElementById('againBtn').addEventListener('click', () => { els.resultSheet.classList.remove('open'); clearOverlay(); });
+    document.getElementById('saveBtn').addEventListener('click', saveRecord);
+    document.getElementById('minusBtn').addEventListener('click', () => adjustCount(-1));
+    document.getElementById('plusBtn').addEventListener('click', () => adjustCount(1));
+    document.getElementById('exportCsv').addEventListener('click', exportCsv);
+    document.getElementById('clearHistory').addEventListener('click', () => {
+      history = [];
+      localStorage.removeItem('pillcount_history');
+      renderHistory();
+    });
+    bindSetting('sensitivity', 'sensitivity', 'vSensitivity');
+    bindSetting('minSize', 'minSize', 'vMinSize');
+    bindSetting('maxSize', 'maxSize', 'vMaxSize');
+    bindSetting('mergeDistance', 'mergeDistance', 'vMerge');
+    window.addEventListener('resize', () => {
+      if (detections.length) drawDetections();
+      else resizeOverlay();
+    });
+    setStatus('', '載入偵測模組');
+  </script>
 </body>
 </html>
