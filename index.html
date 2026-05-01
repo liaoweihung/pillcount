@@ -50,7 +50,7 @@
       background: var(--bg);
     }
 
-    video, #overlay, #snap {
+    video, #photoPreview, #overlay, #snap {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -60,6 +60,12 @@
     video {
       object-fit: cover;
       background: #050706;
+    }
+
+    #photoPreview {
+      object-fit: cover;
+      background: #050706;
+      z-index: 1;
     }
 
     #overlay {
@@ -254,6 +260,11 @@
       cursor: pointer;
     }
 
+    .start-actions {
+      display: grid;
+      gap: 10px;
+    }
+
     .sheet, .drawer {
       position: absolute;
       z-index: 20;
@@ -430,8 +441,10 @@
 <body>
   <main class="app">
     <video id="video" autoplay playsinline muted></video>
+    <img id="photoPreview" class="hidden" alt="">
     <canvas id="overlay"></canvas>
     <canvas id="snap"></canvas>
+    <input id="photoInput" class="hidden" type="file" accept="image/*">
 
     <div class="topbar">
       <div class="brand">Pill<span>Count</span></div>
@@ -451,8 +464,11 @@
       <div class="start-inner">
         <h1>藥局手機數藥</h1>
         <p>把藥錠倒在數藥盤上，手機對準方框拍攝。系統會自動圈出候選藥錠，藥師仍可點一下畫面手動增減確認。</p>
-        <button class="primary" id="startCamera">開啟相機</button>
-        <button class="secondary" id="demoBtn">沒有相機時看示範</button>
+        <div class="start-actions">
+          <button class="primary" id="startCamera">開啟相機</button>
+          <button class="secondary" id="pickPhoto">選 PillEye 照片測試</button>
+          <button class="secondary" id="demoBtn">沒有相機時看示範</button>
+        </div>
       </div>
     </section>
 
@@ -541,10 +557,13 @@
   <script>
     const els = {
       video: document.getElementById('video'),
+      photoPreview: document.getElementById('photoPreview'),
+      photoInput: document.getElementById('photoInput'),
       overlay: document.getElementById('overlay'),
       snap: document.getElementById('snap'),
       start: document.getElementById('start'),
       startCamera: document.getElementById('startCamera'),
+      pickPhoto: document.getElementById('pickPhoto'),
       demoBtn: document.getElementById('demoBtn'),
       status: document.getElementById('status'),
       hint: document.getElementById('hint'),
@@ -572,6 +591,7 @@
     let displayDetections = [];
     let lastImage = { width: 0, height: 0 };
     let lastMapping = null;
+    let activePhotoUrl = null;
     let history = JSON.parse(localStorage.getItem('pillcount_history') || '[]');
 
     function onOpenCvReady() {
@@ -624,6 +644,7 @@
 
     function makeDemo() {
       els.start.classList.add('hidden');
+      els.photoPreview.classList.add('hidden');
       els.captureBtn.disabled = false;
       detections = [
         { x: 260, y: 280, r: 34, kind: 'tablet' },
@@ -639,12 +660,56 @@
       setStatus('ready', '示範模式');
     }
 
+    function pickPhoto() {
+      els.photoInput.click();
+    }
+
+    function loadPhotoFile(file) {
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        if (activePhotoUrl) URL.revokeObjectURL(activePhotoUrl);
+        activePhotoUrl = url;
+        const maxSide = 1600;
+        const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+        const width = Math.round(image.naturalWidth * scale);
+        const height = Math.round(image.naturalHeight * scale);
+        els.snap.width = width;
+        els.snap.height = height;
+        const ctx = els.snap.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(image, 0, 0, width, height);
+        lastImage = { width, height };
+
+        els.photoPreview.src = url;
+        els.photoPreview.classList.remove('hidden');
+        els.start.classList.add('hidden');
+        els.captureBtn.disabled = !cvReady;
+        els.hint.textContent = '照片已載入，點拍照鍵重新偵測';
+
+        if (cvReady) {
+          detections = detectPills(els.snap);
+          drawDetections();
+          showResult('照片偵測');
+          setStatus('ready', '照片已偵測');
+        } else {
+          setStatus('', '等待偵測模組');
+          toast('照片已載入，偵測模組載入後再按拍照鍵');
+        }
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(url);
+        toast('照片讀取失敗');
+      };
+      image.src = url;
+    }
+
     function captureAndCount() {
       if (!cvReady && typeof cv === 'undefined') {
         toast('偵測模組還沒載入完成');
         return;
       }
-      if (!stream || !els.video.videoWidth) {
+      if (!stream && els.photoPreview.classList.contains('hidden')) {
         toast('請先開啟相機');
         return;
       }
@@ -655,20 +720,22 @@
 
       requestAnimationFrame(() => {
         try {
-          const sourceWidth = els.video.videoWidth;
-          const sourceHeight = els.video.videoHeight;
-          const maxSide = 1280;
-          const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
-          const width = Math.round(sourceWidth * scale);
-          const height = Math.round(sourceHeight * scale);
-          els.snap.width = width;
-          els.snap.height = height;
-          const ctx = els.snap.getContext('2d', { willReadFrequently: true });
-          ctx.drawImage(els.video, 0, 0, width, height);
-          lastImage = { width, height };
+          if (stream && els.photoPreview.classList.contains('hidden')) {
+            const sourceWidth = els.video.videoWidth;
+            const sourceHeight = els.video.videoHeight;
+            const maxSide = 1280;
+            const scale = Math.min(1, maxSide / Math.max(sourceWidth, sourceHeight));
+            const width = Math.round(sourceWidth * scale);
+            const height = Math.round(sourceHeight * scale);
+            els.snap.width = width;
+            els.snap.height = height;
+            const ctx = els.snap.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(els.video, 0, 0, width, height);
+            lastImage = { width, height };
+          }
           detections = detectPills(els.snap);
           drawDetections();
-          showResult('自動偵測');
+          showResult(els.photoPreview.classList.contains('hidden') ? '自動偵測' : '照片偵測');
           setStatus('ready', '完成，請人工確認');
         } catch (error) {
           console.error(error);
@@ -1009,6 +1076,8 @@
     }
 
     els.startCamera.addEventListener('click', startCamera);
+    els.pickPhoto.addEventListener('click', pickPhoto);
+    els.photoInput.addEventListener('change', event => loadPhotoFile(event.target.files[0]));
     els.demoBtn.addEventListener('click', makeDemo);
     els.captureBtn.addEventListener('click', captureAndCount);
     els.overlay.addEventListener('click', handleOverlayTap);
